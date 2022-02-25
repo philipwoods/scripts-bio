@@ -44,6 +44,7 @@ if [[ ! -d ${out_dir} ]]; then
     mkdir ${out_dir}
 fi
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 filename=$(basename ${contigs_db})
 
@@ -57,7 +58,7 @@ fi
 # The parameter expansion removes the .db file extension.
 gene_calls="${out_dir}/gene_calls_${filename%.*}.fa"
 anvi-get-sequences-for-gene-calls -c $contigs_db -o $gene_calls --get-aa-sequences --report-extended-deflines
-python /export/data1/projects/pwoods/scripts/fegenie_modify_deflines.py $(realpath $gene_calls)
+python $DIR/fegenie_modify_deflines.py $(realpath $gene_calls)
 
 echo ""
 echo "  Beginning FeGenie annotation..."
@@ -83,7 +84,7 @@ if [[ $(sed -n '1p' ${fegenie_out}) == $(sed -n '2p' ${fegenie_out}) ]]; then
     sed -i 1d ${fegenie_out}
 fi
 anvi_table="${fegenie_out_dir}/fegenie-anvi-table.tsv"
-python /export/data1/projects/pwoods/scripts/fegenie_convert_table.py $(realpath $fegenie_out)
+python $DIR/fegenie_convert_table.py $(realpath $fegenie_out)
 
 anvi-import-functions -c ${contigs_db} -i ${anvi_table}
 rm -f ${gene_calls}
