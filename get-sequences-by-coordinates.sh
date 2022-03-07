@@ -3,6 +3,7 @@
 usage() {
     echo ""
     echo "get-sequences-by-coordinates.sh -t FEATURE_TABLE -f FASTA -o OUT_DIR"
+    echo "  The FASTA file should contain all of the contigs referenced in the feature table."
     echo "  The feature table should not contain a header and should not have any empty lines."
     echo "  If contig names or feature names are not unique in the feature table, you may lose data."
     echo ""
