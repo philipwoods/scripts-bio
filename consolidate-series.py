@@ -10,6 +10,7 @@ def main():
                      "Each index value does not need to be present in all input files. "
                      "Uses input file names to label entries in the output.")
     parser = argparse.ArgumentParser(allow_abbrev=False, description=function_desc)
+    parser.add_argument("-r", "--rows", action='store_true', help="Indicate the input data files are in rows instead of columns.")
     parser.add_argument("-c", "--cumulative", action='store_true',
                         help="Report cumulative data, i.e. reverse cumulative sum along the index for each file. Default is off.")
     parser.add_argument("--no-header", dest='header', default=0, action='store_const', const=None,
@@ -45,7 +46,17 @@ def main():
         if args.tail and filename.endswith(args.tail):
             size = len(args.tail) * -1
             filename = filename[:size]
-        series = pd.read_csv(f, sep=args.separator, header=args.header, names=[args.index, filename], index_col=args.index)
+        if not args.rows: # If the input data files are formatted as columns...
+            series = pd.read_csv(f, sep=args.separator, header=args.header, names=[args.index, filename], index_col=args.index)
+        if args.rows: # If the input data files are formatted as rows...
+            # Before transposing, the header would be the index column
+            index_col = 0
+            if args.header is None:
+                index_col = False
+            # Import and transpose data, then set index and column names as above
+            series = pd.read_csv(f, sep=args.separator, index_col=index_col).T
+            series.index.names = [args.index]
+            series.columns = [filename]
         data.append(series)
     # Condense the input data
     out_df = pd.concat(data, axis=1, sort=True).convert_dtypes()
