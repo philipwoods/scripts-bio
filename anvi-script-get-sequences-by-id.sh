@@ -77,7 +77,15 @@ if [[ ! $CONDA_DEFAULT_ENV =~ "anvio" ]]; then
     exit 1
 fi
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# Get real directory where script file is located,
+# even if the script was called via a symlink
+SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 sequences_temp="${out_dir}/sequence_temp.fasta"
 
@@ -96,7 +104,7 @@ while read name db ids functions; do
             anvi-get-sequences-for-gene-calls -c "${db}" --gene-caller-ids "${ids}" -o "${sequences_temp}" "${aa_option}"
         fi
         gene_info="$( paste -d '|' <(echo ${ids} | sed 's/,/\n/g') <(echo ${functions} | sed 's/,/\n/g') )"
-        python /home/pwoods/scripts-bio/modify_fasta_defline.py "${sequences_temp}" "${name}" <(echo "${gene_info}")
+        python $DIR/modify_fasta_defline.py "${sequences_temp}" "${name}" <(echo "${gene_info}")
         cat "${sequences_temp}" >> "${sequences_out}"
         echo "" >> "${sequences_out}"
         rm -f "${sequences_temp}"
