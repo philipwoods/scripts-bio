@@ -112,7 +112,15 @@ rm -f $tmp1
 ## Once we have the 'singleton' ngrams removed, we can check for duplicates if necessary.
 if [[ -n "${dedup}" ]]; then # If the dedup flag was provided...
     echo "Deduplicating synteny records..."
-    DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+    # Get real directory where script file is located,
+    # even if the script was called via a symlink
+    SOURCE=${BASH_SOURCE[0]}
+    while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+      DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+      SOURCE=$(readlink "$SOURCE")
+      [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+    done
+    DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
     tmp3=$(mktemp)
     # Pass tmp2 as the input and tmp3 as a location to write the output.
     python "${DIR}/deduplicate-synteny.py" ${tmp2} ${tmp3}
