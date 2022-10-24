@@ -5,6 +5,31 @@ import sys
 import argparse
 from Bio import AlignIO
 
+# Amino acid conservation properties extracted from jalview/schemes/ResidueProperties.java
+jalview_props = ["hydrophobic", "polar", "small", "positive", "negative", "charged", "aromatic", "aliphatic", "tiny", "proline"]
+aa_props = {
+    "A": set(["hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "tiny", "not proline"]),
+    "C": set(["hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "D": set(["not hydrophobic", "polar", "small", "not positive", "negative", "charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "E": set(["not hydrophobic", "polar", "not small", "not positive", "negative", "charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "F": set(["hydrophobic", "not polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "G": set(["hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "tiny", "not proline"]),
+    "H": set(["hydrophobic", "polar", "not small", "positive", "not negative", "charged", "aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "I": set(["hydrophobic", "not polar", "not small", "not positive", "not negative", "not charged", "not aromatic", "aliphatic", "not tiny", "not proline"]),
+    "K": set(["hydrophobic", "polar", "not small", "positive", "not negative", "charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "L": set(["hydrophobic", "not polar", "not small", "not positive", "not negative", "not charged", "not aromatic", "aliphatic", "not tiny", "not proline"]),
+    "M": set(["hydrophobic", "not polar", "not small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "N": set(["not hydrophobic", "polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "P": set(["not hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "proline"]),
+    "Q": set(["not hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "R": set(["not hydrophobic", "polar", "not small", "positive", "not negative", "charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "S": set(["not hydrophobic", "polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "tiny", "not proline"]),
+    "T": set(["not hydrophobic", "polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "V": set(["hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "aliphatic", "not tiny", "not proline"]),
+    "W": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "Y": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"])
+    }
+
 def main(args):
     # Read in alignment file
     alignment = AlignIO.read(args.fasta, "fasta")
