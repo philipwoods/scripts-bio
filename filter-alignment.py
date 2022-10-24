@@ -25,6 +25,7 @@ def main(args):
     if args.list:
         for i, record in enumerate(alignment):
             print("{index}\t{header}".format(index=i, header=record.id))
+        sys.exit()
     print("Done")
 
 if __name__ == "__main__":
@@ -34,11 +35,14 @@ if __name__ == "__main__":
     parser.add_argument('--ingroup', type=int, nargs='+', help="Specify indices of sequences to check for site conservation. Default: all")
     parser.add_argument('--outgroup', type=int, nargs='+', help="Specify indices of sequences which should not be conserved with the ingroup. Default: none")
     parser.add_argument('--identity', '-i', type=float, default=1, help="Set the minimum identity threshold for conservation. Default: %(default)s")
+    parser.add_argument('--gaps', '-g', type=float, default=0.25, help="Set the maximum proportion of gaps allowed in a site for conservation analysis. Default: %(default)s")
     args = parser.parse_args()
     # Argument validation
     if not os.path.isfile(args.fasta):
         sys.exit("Specified file does not exist: {}".format(args.fasta))
     if (args.identity < 0) or (args.identity > 1):
         sys.exit("Identity threshold must be a proportion between 0 and 1, inclusive.")
+    if (args.gaps < 0) or (args.gaps > 1):
+        sys.exit("Gaps threshold must be a proportion between 0 and 1, inclusive.")
     main(args)
 
