@@ -51,7 +51,37 @@ def main(args):
         for i, record in enumerate(alignment):
             print("{index}\t{header}".format(index=i, header=record.id))
         sys.exit()
-    print("Done")
+    ## Compute identity at each site in the alignment
+    conserved_sites = []
+    for i in range(alignment.get_alignment_length()):
+        # Extract one column as a string
+        column = alignment[:,i]
+        # Calculate the frequency of gaps in the column
+        # and disregard it if there are too many
+        gap_freq = column.count('-') / len(column)
+        if gap_freq > args.gaps:
+            continue
+        # Identify the unique residues in the column
+        residues = set(column)
+        if '-' in residues:
+            residues.remove('-')
+        # Get the frequency of each amino acid in the column
+        freqs = {}
+        for aa in sorted(residues):
+            freqs[aa] = column.count(aa) / len(column)
+        # Disregard the column if max frequency is less than identity cutoff
+        if max(freqs.values()) < args.identity:
+            continue
+        # If there is a conserved residue, identify it
+        # Break statement ensures only one residue per site in case of a tie
+        for aa, freq in freqs.items():
+            if freq == max(freqs.values()):
+                conserved_sites.append({'position': i+1, 'residue': aa, 'frequency': freq})
+                break
+    # Print conserved sites
+    print('Position\tConserved residue\tFrequency')
+    for site in conserved_sites:
+        print("{position}\t{aa}\t{freq:.2f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
