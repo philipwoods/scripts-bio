@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import pandas as pd
 from Bio import AlignIO
 
 # Amino acid conservation properties extracted from jalview/schemes/ResidueProperties.java
@@ -79,9 +80,27 @@ def main(args):
                 conserved_sites.append({'position': i+1, 'residue': aa, 'frequency': freq})
                 break
     # Print conserved sites
-    print('Position\tConserved residue\tFrequency')
-    for site in conserved_sites:
-        print("{position}\t{aa}\t{freq:.2f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
+    if not args.print_alignment:
+        print('Position\tConserved residue\tFrequency')
+        for site in conserved_sites:
+            print("{position}\t{aa}\t{freq:.2f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
+    else:
+        trimmed = alignment[:,0:1] # Create initial placeholder slice to add to
+        positions = []
+        consensus = []
+        frequencies = []
+        # Build trimmed alignment of only conserved sites
+        for site in conserved_sites:
+            trimmed = trimmed + alignment[:,site['position']-1:site['position']]
+            positions.append(site['position'])
+            consensus.append(site['residue'])
+            frequencies.append(site['frequency'])
+        trimmed = trimmed[:,1:] # Remove initial placeholder column
+        # Handle annotations and display
+        annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
+        print(format(trimmed, 'clustal'))
+        print("Consensus sequence:\t{}\n".format("".join(consensus)))
+        print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -91,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument('--outgroup', type=int, nargs='+', help="Specify indices of sequences which should not be conserved with the ingroup. Default: none")
     parser.add_argument('--identity', '-i', type=float, default=1, help="Set the minimum identity threshold for conservation. Default: %(default)s")
     parser.add_argument('--gaps', '-g', type=float, default=0.25, help="Set the maximum proportion of gaps allowed in a site for conservation analysis. Default: %(default)s")
+    parser.add_argument('--print-alignment', '-p', action='store_true', help="Print a trimmed alignment of the conserved sites instead of a summary table.")
     args = parser.parse_args()
     # Argument validation
     if not os.path.isfile(args.fasta):
