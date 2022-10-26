@@ -5,6 +5,7 @@ import sys
 import argparse
 import pandas as pd
 from Bio import AlignIO
+from Bio.Align import MultipleSeqAlignment
 
 # Amino acid conservation properties extracted from jalview/schemes/ResidueProperties.java
 jalview_props = ["hydrophobic", "polar", "small", "positive", "negative", "charged", "aromatic", "aliphatic", "tiny", "proline"]
@@ -31,6 +32,28 @@ aa_props = {
     "Y": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"])
     }
 
+def trim_clustal(alignment, header, footer=None):
+    """
+    Arguments
+    ----------------
+    alignment : str
+        The string output of format(MSA, 'clustal')
+    header : str
+        A string which will act as a header for the alignment
+    footer : str
+        An optional string to act as a footer for the alignment
+
+    Returns
+    ----------------
+    An adjusted clustal formatted alignment string
+    """
+    lines = alignment.split('\n')
+    lines = lines[1:-2]
+    lines[0] = header
+    if footer is not None:
+        lines.extend([footer, ''])
+    return "\n".join(lines)
+
 def main(args):
     # Read in alignment file
     alignment = AlignIO.read(args.fasta, "fasta")
@@ -47,6 +70,11 @@ def main(args):
     in_set = set(args.ingroup)
     if not in_set.isdisjoint(out_set):
         sys.exit("Sequences cannot be in both the ingroup and the outgroup.")
+    # Create alignment objects for ingroup and outgroup
+    others_list = sorted(set(range(len(alignment))).difference(out_set).difference(in_set))
+    ingroup = MultipleSeqAlignment([alignment[i] for i in args.ingroup])
+    outgroup = MultipleSeqAlignment([alignment[i] for i in args.outgroup]) 
+    others = MultipleSeqAlignment([alignment[i] for i in others_list])
     # Handle list display argument
     if args.list:
         for i, record in enumerate(alignment):
@@ -56,7 +84,7 @@ def main(args):
     conserved_sites = []
     for i in range(alignment.get_alignment_length()):
         # Extract one column as a string
-        column = alignment[:,i]
+        column = ingroup[:,i]
         # Calculate the frequency of gaps in the column
         # and disregard it if there are too many
         gap_freq = column.count('-') / len(column)
@@ -76,30 +104,42 @@ def main(args):
         # If there is a conserved residue, identify it
         # Break statement ensures only one residue per site in case of a tie
         for aa, freq in freqs.items():
-            if freq == max(freqs.values()):
+            if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
                 conserved_sites.append({'position': i+1, 'residue': aa, 'frequency': freq})
                 break
     # Print conserved sites
-    if not args.print_alignment:
+    if args.table:
         print('Position\tConserved residue\tFrequency')
         for site in conserved_sites:
-            print("{position}\t{aa}\t{freq:.2f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
+            print("{position}\t{aa}\t{freq:.3f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
     else:
-        trimmed = alignment[:,0:1] # Create initial placeholder slice to add to
+        # Create initial placeholder slices for each group
+        trimmed_in = ingroup[:,0:1]
+        trimmed_out = outgroup[:,0:1]
+        trimmed_other = others[:,0:1]
         positions = []
         consensus = []
         frequencies = []
         # Build trimmed alignment of only conserved sites
         for site in conserved_sites:
-            trimmed = trimmed + alignment[:,site['position']-1:site['position']]
+            trimmed_in = trimmed_in + ingroup[:,site['position']-1:site['position']]
+            trimmed_out = trimmed_out + outgroup[:,site['position']-1:site['position']]
+            trimmed_other = trimmed_other + others[:,site['position']-1:site['position']]
             positions.append(site['position'])
             consensus.append(site['residue'])
             frequencies.append(site['frequency'])
-        trimmed = trimmed[:,1:] # Remove initial placeholder column
+        # Remove initial placeholder columns
+        trimmed_in = trimmed_in[:,1:]
+        trimmed_out = trimmed_out[:,1:]
+        trimmed_other = trimmed_other[:,1:]
         # Handle annotations and display
         annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
-        print(format(trimmed, 'clustal'))
-        print("Consensus sequence:\t{}\n".format("".join(consensus)))
+        footer = "Consensus sequence:                 {}".format("".join(consensus))
+        print(trim_clustal(format(trimmed_in, 'clustal'), "Ingroup conserved sites", footer))
+        if args.outgroup:
+            print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences"))
+        if others:
+            print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences"))
         print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
 
 if __name__ == "__main__":
@@ -110,7 +150,7 @@ if __name__ == "__main__":
     parser.add_argument('--outgroup', type=int, nargs='+', help="Specify indices of sequences which should not be conserved with the ingroup. Default: none")
     parser.add_argument('--identity', '-i', type=float, default=1, help="Set the minimum identity threshold for conservation. Default: %(default)s")
     parser.add_argument('--gaps', '-g', type=float, default=0.25, help="Set the maximum proportion of gaps allowed in a site for conservation analysis. Default: %(default)s")
-    parser.add_argument('--print-alignment', '-p', action='store_true', help="Print a trimmed alignment of the conserved sites instead of a summary table.")
+    parser.add_argument('--table', '-t', action='store_true', help="Print a summary table instead of a trimmed alignment of the conserved sites.")
     args = parser.parse_args()
     # Argument validation
     if not os.path.isfile(args.fasta):
