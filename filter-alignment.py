@@ -133,14 +133,27 @@ def main(args):
         trimmed_out = trimmed_out[:,1:]
         trimmed_other = trimmed_other[:,1:]
         # Handle annotations and display
-        annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
-        footer = "Consensus sequence:                 {}".format("".join(consensus))
-        print(trim_clustal(format(trimmed_in, 'clustal'), "Ingroup conserved sites", footer))
-        if args.outgroup:
-            print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences"))
-        if others:
-            print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences"))
-        print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
+        if args.fasta_out:
+            for record in trimmed_in:
+                record.id = "Ingroup_" + record.id
+            for record in trimmed_out:
+                record.id = "Outgroup_" + record.id
+            for record in trimmed_other:
+                record.id = "Other_" + record.id
+            print(format(trimmed_in, 'fasta'))
+            print(">Ingroup_Consensus")
+            print("".join(consensus))
+            print(format(trimmed_out, 'fasta'))
+            print(format(trimmed_other, 'fasta'))
+        else:
+            annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
+            footer = "Consensus sequence:                 {}".format("".join(consensus))
+            print(trim_clustal(format(trimmed_in, 'clustal'), "Ingroup conserved sites", footer))
+            if args.outgroup:
+                print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences"))
+            if others:
+                print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences"))
+            print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -151,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument('--identity', '-i', type=float, default=1, help="Set the minimum identity threshold for conservation. Default: %(default)s")
     parser.add_argument('--gaps', '-g', type=float, default=0.25, help="Set the maximum proportion of gaps allowed in a site for conservation analysis. Default: %(default)s")
     parser.add_argument('--table', '-t', action='store_true', help="Print a summary table instead of a trimmed alignment of the conserved sites.")
+    parser.add_argument('--fasta-out', action='store_true', help="Output the trimmed alignment in FASTA format.")
     args = parser.parse_args()
     # Argument validation
     if not os.path.isfile(args.fasta):
