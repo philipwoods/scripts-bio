@@ -7,7 +7,7 @@ print_usage() {
 indir=""
 outdir=""
 
-while getopts ":he:o:" opt; do
+while getopts ":hi:o:" opt; do
     case $opt in
         h)  print_usage
             exit 1
