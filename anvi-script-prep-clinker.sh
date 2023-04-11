@@ -46,7 +46,8 @@ SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
   DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
   SOURCE=$(readlink "$SOURCE")
-  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to  81 done
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
 DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 # Extract GFF of annotations
@@ -56,7 +57,7 @@ done
 
 # Convert GFF to GB format
 for f in ${indir}/*.gff; do
-    gff_to_genbank $f ${f%.gff}.fa
+    $DIR/gff_to_genbank.py $f ${f%.gff}.fa
 done
 
 # Copy GB files for clinker to the output directory
