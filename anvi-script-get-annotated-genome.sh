@@ -117,6 +117,7 @@ echo "Exporting contigs database..."
 anvi-export-contigs -c "$contigs_db" -o "$contigs_out"
 echo "Exporting feature annotations..."
 anvi-get-sequences-for-gene-calls -c "$contigs_db" --export-gff3 -o "$features_out"
+#anvi-get-sequences-for-gene-calls -c "$contigs_db" --export-gff3 -o "$features_out" --annotation-source "${annotation_src}"
 anvi-export-functions -c "$contigs_db" --annotation-sources "Transfer_RNAs" -o "$trnas_out"
 if [ -n "$pan_db" ]; then
     pan_name=$(basename "$pan_db" .db)
@@ -139,5 +140,7 @@ else
     echo "Adding information to feature annotation file..."
     python "${DIR}/add-info-to-gff3.py" "$features_out" "$trnas_out"
 fi
+# Escape any reserved characters in the GFF
+$DIR/clean-gff-products.sh "$features_out"
 echo "Done!"
 exit

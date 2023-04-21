@@ -60,7 +60,7 @@ def main():
         else: # If there wasn't...
             gene_id = line[start:].strip() # Strip the \n off the end of the line
         # The Transfer_RNAs annotation source includes semicolons in the function, but GFF3 reserves them as special
-        trna = "!!!".join(trna_df[trna_df['gene_callers_id']==gene_id]['function'].to_numpy()).replace(";",",")
+        trna = "!!!".join(trna_df[trna_df['gene_callers_id']==gene_id]['function'].to_numpy()).replace(";"," %3B ")
         accession = "!!!".join(trna_df[trna_df['gene_callers_id']==gene_id]['accession'].to_numpy())
         new_attributes = ""
         if accession: # If there is a value, add fields for it.
