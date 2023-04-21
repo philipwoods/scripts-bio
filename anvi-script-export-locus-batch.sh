@@ -29,14 +29,14 @@ print_usage() {
 
 infile=""
 outdir=""
-header=""
+header="true"
 
 while getopts ":hni:o:" opt; do
     case $opt in 
         h)  print_usage
             exit 1
             ;;
-        n)  header="noheader"
+        n)  header="false"
             ;;
         i)  infile="${OPTARG}"
             ;;
@@ -77,7 +77,7 @@ fi
 
 data=$(mktemp)
 cp $infile $data
-if [[ $header == "noheader" ]]; then
+if [[ $header == "true" ]]; then
     sed -i '1d' $data
 fi
 
