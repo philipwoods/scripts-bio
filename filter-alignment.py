@@ -54,9 +54,129 @@ def trim_clustal(alignment, header, footer=None):
         lines.extend([footer, ''])
     return "\n".join(lines)
 
+def format_conserved_alignment(groups, cons_sites, fasta)
+    """
+    Arguments
+    ----------------
+    groups : dict of Biopython MSA objects containing
+        'ingroup':  A MSA object of the taxa to be compared for conservation
+        'outgroup': A MSA object of the taxa which cannot share the conserved residue
+        'others':   A MSA object of taxa in neither the ingroup or outgroup
+    cons_sites : list of conserved sites where each site is encoded as a dict containing 
+        'position':  its position in the original alignment,
+        'residue':   the consensus residue, and
+        'frequency': the residue's frequency in the ingroup.
+    fasta : bool
+        A flag indicating whether the output should be FASTA or human-readable
+
+    Returns
+    ----------------
+    None (prints output)
+    """
+    ingroup = groups['ingroup']
+    outgroup = groups['outgroup']
+    others = groups['others']
+    # Create initial placeholder slices for each group
+    trimmed_in = ingroup[:,0:1]
+    trimmed_out = outgroup[:,0:1]
+    trimmed_other = others[:,0:1]
+    positions = []
+    consensus = []
+    frequencies = []
+    # Build trimmed alignment of only conserved sites
+    for site in cons_sites:
+        trimmed_in = trimmed_in + ingroup[:,site['position']-1:site['position']]
+        trimmed_out = trimmed_out + outgroup[:,site['position']-1:site['position']]
+        trimmed_other = trimmed_other + others[:,site['position']-1:site['position']]
+        positions.append(site['position'])
+        consensus.append(site['residue'])
+        frequencies.append(site['frequency'])
+    # Remove initial placeholder columns
+    trimmed_in = trimmed_in[:,1:]
+    trimmed_out = trimmed_out[:,1:]
+    trimmed_other = trimmed_other[:,1:]
+    # Handle annotations and display
+    if fasta:
+        for record in trimmed_in:
+            record.id = "Ingroup_" + record.id
+        for record in trimmed_out:
+            record.id = "Outgroup_" + record.id
+        for record in trimmed_other:
+            record.id = "Other_" + record.id
+        print(format(trimmed_in, 'fasta'))
+        print(">Ingroup_Consensus")
+        print("".join(consensus))
+        print(format(trimmed_out, 'fasta'))
+        print(format(trimmed_other, 'fasta'))
+    else:
+        annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
+        footer = "Consensus sequence:                 {}".format("".join(consensus))
+        print(trim_clustal(format(trimmed_in, 'clustal'), "Ingroup conserved sites", footer))
+        if args.outgroup:
+            print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences"))
+        if others:
+            print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences"))
+        print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
+
+def find_conserved_sites(groups, min_cons, max_gaps):
+    """
+    Arguments
+    ----------------
+    groups : dict of Biopython MSA objects containing
+        'ingroup':  A MSA object of the taxa to be compared for conservation
+        'outgroup': A MSA object of the taxa which cannot share the conserved residue
+        'others':   A MSA object of taxa in neither the ingroup or outgroup
+    min_cons : float
+        The minimum AAI in the column which will be treated as 'conserved'
+    max_gaps : float
+        The maximum proportion of gaps allowed in a column to be considered
+
+    Returns
+    ----------------
+    A list of conserved sites, with each site encoded as a dictionary containing
+        'position':  its position in the original alignment,
+        'residue':   the consensus residue, and
+        'frequency': the residue's frequency in the ingroup.
+    """
+    ingroup = groups['ingroup']
+    outgroup = groups['outgroup']
+    conserved_sites = []
+    for i in range(ingroup.get_alignment_length()):
+        # Extract one column as a string
+        column = ingroup[:,i]
+        # Calculate the frequency of gaps in the column
+        # and disregard it if there are too many
+        gap_freq = column.count('-') / len(column)
+        if gap_freq > max_gaps:
+            continue
+        # Identify the unique residues in the column
+        residues = set(column)
+        if '-' in residues:
+            residues.remove('-')
+        # Get the frequency of each amino acid in the column
+        freqs = {}
+        for aa in sorted(residues):
+            freqs[aa] = column.count(aa) / len(column)
+        # Disregard the column if max frequency is less than identity cutoff
+        if max(freqs.values()) < min_cons:
+            continue
+        # If there is a conserved residue, identify it
+        # Break statement ensures only one residue per site in case of a tie
+        for aa, freq in freqs.items():
+            if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
+                conserved_sites.append({'position': i+1, 'residue': aa, 'frequency': freq})
+                break
+    return conserved_sites
+
 def main(args):
     # Read in alignment file
     alignment = AlignIO.read(args.fasta, "fasta")
+    # Handle list display argument
+    if args.list:
+        for i, record in enumerate(alignment):
+            print("{index}\t{header}".format(index=i, header=record.id))
+        sys.exit()
+
     ## Late argument validation
     # If no outgroup is given, the outgroup should be empty.
     if args.outgroup is None:
@@ -68,6 +188,7 @@ def main(args):
         in_set = in_set.difference(out_set)
         args.ingroup = sorted(in_set)
     in_set = set(args.ingroup)
+    # The ingroup and outgroup cannot overlap.
     if not in_set.isdisjoint(out_set):
         sys.exit("Sequences cannot be in both the ingroup and the outgroup.")
     # Create alignment objects for ingroup and outgroup
@@ -75,85 +196,19 @@ def main(args):
     ingroup = MultipleSeqAlignment([alignment[i] for i in args.ingroup])
     outgroup = MultipleSeqAlignment([alignment[i] for i in args.outgroup]) 
     others = MultipleSeqAlignment([alignment[i] for i in others_list])
-    # Handle list display argument
-    if args.list:
-        for i, record in enumerate(alignment):
-            print("{index}\t{header}".format(index=i, header=record.id))
-        sys.exit()
+    groups = {'ingroup': ingroup, 'outgroup': outgroup, 'others': others}
+
     ## Compute identity at each site in the alignment
-    conserved_sites = []
-    for i in range(alignment.get_alignment_length()):
-        # Extract one column as a string
-        column = ingroup[:,i]
-        # Calculate the frequency of gaps in the column
-        # and disregard it if there are too many
-        gap_freq = column.count('-') / len(column)
-        if gap_freq > args.gaps:
-            continue
-        # Identify the unique residues in the column
-        residues = set(column)
-        if '-' in residues:
-            residues.remove('-')
-        # Get the frequency of each amino acid in the column
-        freqs = {}
-        for aa in sorted(residues):
-            freqs[aa] = column.count(aa) / len(column)
-        # Disregard the column if max frequency is less than identity cutoff
-        if max(freqs.values()) < args.identity:
-            continue
-        # If there is a conserved residue, identify it
-        # Break statement ensures only one residue per site in case of a tie
-        for aa, freq in freqs.items():
-            if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
-                conserved_sites.append({'position': i+1, 'residue': aa, 'frequency': freq})
-                break
-    # Print conserved sites
+    # Output has format [{'position': X, 'residue': X, 'frequency': F}, {...}, ...]
+    conserved_sites = find_conserved_sites(groups, args.identity, args.gaps)
+
+    ## Print conserved sites
     if args.table:
         print('Position\tConserved residue\tFrequency')
         for site in conserved_sites:
             print("{position}\t{aa}\t{freq:.3f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
     else:
-        # Create initial placeholder slices for each group
-        trimmed_in = ingroup[:,0:1]
-        trimmed_out = outgroup[:,0:1]
-        trimmed_other = others[:,0:1]
-        positions = []
-        consensus = []
-        frequencies = []
-        # Build trimmed alignment of only conserved sites
-        for site in conserved_sites:
-            trimmed_in = trimmed_in + ingroup[:,site['position']-1:site['position']]
-            trimmed_out = trimmed_out + outgroup[:,site['position']-1:site['position']]
-            trimmed_other = trimmed_other + others[:,site['position']-1:site['position']]
-            positions.append(site['position'])
-            consensus.append(site['residue'])
-            frequencies.append(site['frequency'])
-        # Remove initial placeholder columns
-        trimmed_in = trimmed_in[:,1:]
-        trimmed_out = trimmed_out[:,1:]
-        trimmed_other = trimmed_other[:,1:]
-        # Handle annotations and display
-        if args.fasta_out:
-            for record in trimmed_in:
-                record.id = "Ingroup_" + record.id
-            for record in trimmed_out:
-                record.id = "Outgroup_" + record.id
-            for record in trimmed_other:
-                record.id = "Other_" + record.id
-            print(format(trimmed_in, 'fasta'))
-            print(">Ingroup_Consensus")
-            print("".join(consensus))
-            print(format(trimmed_out, 'fasta'))
-            print(format(trimmed_other, 'fasta'))
-        else:
-            annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
-            footer = "Consensus sequence:                 {}".format("".join(consensus))
-            print(trim_clustal(format(trimmed_in, 'clustal'), "Ingroup conserved sites", footer))
-            if args.outgroup:
-                print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences"))
-            if others:
-                print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences"))
-            print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
+        format_conserved_alignment(groups, conserved_sites, args.fasta_out)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
