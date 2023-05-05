@@ -32,6 +32,19 @@ aa_props = {
     "Y": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"])
     }
 
+# From Susko & Roger (2007) doi:10.1093/molbev/msm144
+recoding_bins = {
+        "SR4": {"A": "1", "C": "2", "D": "3", "E": "3", "F": "4", "G": "1", "H": "2", "I": "4", "K": "3", "L": "4", "M": "4", "N": "1", "P": "1", "Q": "3", "R": "3", "S": "1", "T": "1", "V": "4", "W": "2", "Y": "2"},
+        "SR5": {"A": "1", "C": "2", "D": "3", "E": "3", "F": "2", "G": "1", "H": "4", "I": "5", "K": "4", "L": "5", "M": "5", "N": "3", "P": "1", "Q": "4", "R": "4", "S": "1", "T": "1", "V": "5", "W": "2", "Y": "2"},
+        "SR6": {"A": "1", "C": "2", "D": "3", "E": "3", "F": "4", "G": "3", "H": "4", "I": "5", "K": "6", "L": "5", "M": "5", "N": "3", "P": "1", "Q": "6", "R": "6", "S": "1", "T": "1", "V": "5", "W": "2", "Y": "4"},
+        "SR7": {"A": "1", "C": "2", "D": "3", "E": "3", "F": "4", "G": "1", "H": "5", "I": "6", "K": "7", "L": "6", "M": "6", "N": "3", "P": "5", "Q": "7", "R": "7", "S": "1", "T": "1", "V": "6", "W": "2", "Y": "4"},
+        "SR8": {"A": "1", "C": "2", "D": "3", "E": "3", "F": "4", "G": "2", "H": "5", "I": "6", "K": "7", "L": "6", "M": "8", "N": "3", "P": "5", "Q": "7", "R": "7", "S": "1", "T": "1", "V": "6", "W": "8", "Y": "4"},
+        "SR9": {"A": "1", "C": "2", "D": "3", "E": "3", "F": "4", "G": "5", "H": "6", "I": "7", "K": "8", "L": "7", "M": "9", "N": "5", "P": "9", "Q": "6", "R": "8", "S": "1", "T": "1", "V": "7", "W": "2", "Y": "4"},
+        "SR11": {"A": "1", "C": "C", "D": "2", "E": "2", "F": "3", "G": "4", "H": "5", "I": "6", "K": "7", "L": "8", "M": "8", "N": "4", "P": "P", "Q": "5", "R": "7", "S": "1", "T": "1", "V": "6", "W": "W", "Y": "3"},
+        "SR13": {"A": "1", "C": "C", "D": "2", "E": "2", "F": "3", "G": "G", "H": "H", "I": "4", "K": "5", "L": "6", "M": "6", "N": "N", "P": "P", "Q": "Q", "R": "5", "S": "1", "T": "1", "V": "4", "W": "W", "Y": "3"},
+        "SR15": {"A": "1", "C": "C", "D": "2", "E": "2", "F": "F", "G": "G", "H": "H", "I": "3", "K": "4", "L": "L", "M": "M", "N": "N", "P": "P", "Q": "Q", "R": "4", "S": "1", "T": "1", "V": "3", "W": "W", "Y": "Y"}
+    }
+
 def trim_clustal(alignment, header, footer=None):
     """
     Arguments
@@ -176,6 +189,16 @@ def main(args):
         for i, record in enumerate(alignment):
             print("{index}\t{header}".format(index=i, header=record.id))
         sys.exit()
+    # Recode if necessary
+    if args.recoding is not None:
+        recode_dict = recoding_bins[args.recoding]
+        for record in alignment:
+            newseq = record.seq
+            for k,v in recode_dict.items():
+                newseq = newseq.replace(k,v)
+            record.seq = newseq
+        recoding_file = os.path.splitext(args.fasta)[0] + "-recoded-{}.fa".format(args.recoding)
+        AlignIO.write(alignment, recoding_file, "fasta")
 
     ## Late argument validation
     # If no outgroup is given, the outgroup should be empty.
@@ -220,6 +243,7 @@ if __name__ == "__main__":
     parser.add_argument('--gaps', '-g', type=float, default=0.25, help="Set the maximum proportion of gaps allowed in a site for conservation analysis. Default: %(default)s")
     parser.add_argument('--table', '-t', action='store_true', help="Print a summary table instead of a trimmed alignment of the conserved sites.")
     parser.add_argument('--fasta-out', action='store_true', help="Output the trimmed alignment in FASTA format.")
+    parser.add_argument('--recode', '-r', choices=recoding_bins.keys(), help="Recode the alignment using the specified scheme before conservation analysis.")
     args = parser.parse_args()
     # Argument validation
     if not os.path.isfile(args.fasta):
