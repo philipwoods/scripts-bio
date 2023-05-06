@@ -45,6 +45,119 @@ recoding_bins = {
         "SR15": {"A": "1", "C": "C", "D": "2", "E": "2", "F": "F", "G": "G", "H": "H", "I": "3", "K": "4", "L": "L", "M": "M", "N": "N", "P": "P", "Q": "Q", "R": "4", "S": "1", "T": "1", "V": "3", "W": "W", "Y": "Y"}
     }
 
+def residue_freqs(column):
+    """
+    Arguments
+    ----------------
+    column : str
+        A string containing the residues in one column of an alignment
+
+    Returns
+    ----------------
+    A dict with residues as keys and frequencies as values
+    """
+    # Identify the unique residues in the column
+    residues = set(column)
+    # Get the frequency of each amino acid in the column
+    freqs = {}
+    for aa in sorted(residues):
+        freqs[aa] = column.count(aa) / len(column)
+    return freqs
+
+def conserved_properties(column, max_gaps)
+    """
+    Arguments
+    ----------------
+    column : str
+        A string containing the residues in one column of an alignment
+    max_gaps : float
+        The maximum proportion of gaps allowed in the column
+
+    Returns
+    ----------------
+    A one-character string indicating the degree of chemical property conservation
+    """
+    if len(column) < 1:
+        return
+
+    # Calculate the frequency of gaps in the column
+    # and disregard it if there are too many
+    gap_freq = column.count('-') / len(column)
+    if gap_freq > max_gaps:
+        return '-'
+
+    # Identify the unique residues in the column
+    residues = set(column)
+    if '-' in residues:
+        residues.remove('-')
+
+    # Identify shared chemical properties
+    conserved = None
+    for residue in residues:
+        if conserved is None:
+            conserved = aa_props[residue]
+        else:
+            conserved = conserved.intersection(aa_props[residue])
+    
+    # Return a single-character string
+    # The maximum value is 10, encoded as '*'
+    props = str(len(conserved))
+    if len(conserved) > 9:
+        props = '*'
+    return props
+
+def find_conserved_sites(groups, args):
+    """
+    Arguments
+    ----------------
+    groups : dict of Biopython MSA objects containing
+        'ingroup':  A MSA object of the taxa to be compared for conservation
+        'outgroup': A MSA object of the taxa which cannot share the conserved residue
+        'others':   A MSA object of taxa in neither the ingroup or outgroup
+    args : ArgParse object
+        An object containing the command-line parameters provided by the user
+
+    Returns
+    ----------------
+    cons_sites : list of conserved sites where each site is encoded as a dict containing 
+        'position':   its position in the original alignment,
+        'residue':    the consensus residue, and
+        'frequency':  the residue's frequency in the ingroup.
+        'properties': the degree of conserved properties at this site
+    """
+    ingroup = groups['ingroup']
+    outgroup = groups['outgroup']
+    conserved_sites = []
+    for i in range(ingroup.get_alignment_length()):
+        # Extract one column as a string
+        column = ingroup[:,i]
+        # Calculate the frequency of each residue in the column
+        freqs = residue_freqs(column)
+        # Disregard the column if there are too many gaps
+        if freqs['-'] > args.gaps:
+            continue
+        # Disregard the column if max frequency is less than identity cutoff
+        if max(freqs.values()) < args.identity:
+            continue
+        # If there is a conserved residue, record and annotate it
+        # Break statement ensures only one residue per site in case of a tie
+        for aa, freq in freqs.items():
+            if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
+                properties = "X"
+                if args.recode is None:
+                    properties = conserved_props(column, args.gaps)
+                site = {
+                        'position': i+1,
+                        'residue': aa,
+                        'frequency': freq,
+                        'properties': properties
+                    }
+                conserved_sites.append(site)
+                break
+    return conserved_sites
+
+## should properties conservation replace AAI when used or should both be always considered?
+
 def trim_clustal(alignment, header, footer=None):
     """
     Arguments
@@ -67,7 +180,7 @@ def trim_clustal(alignment, header, footer=None):
         lines.extend([footer, ''])
     return "\n".join(lines)
 
-def format_conserved_alignment(groups, cons_sites, fasta)
+def format_conserved_alignment(groups, cons_sites, args)
     """
     Arguments
     ----------------
@@ -76,11 +189,12 @@ def format_conserved_alignment(groups, cons_sites, fasta)
         'outgroup': A MSA object of the taxa which cannot share the conserved residue
         'others':   A MSA object of taxa in neither the ingroup or outgroup
     cons_sites : list of conserved sites where each site is encoded as a dict containing 
-        'position':  its position in the original alignment,
-        'residue':   the consensus residue, and
-        'frequency': the residue's frequency in the ingroup.
-    fasta : bool
-        A flag indicating whether the output should be FASTA or human-readable
+        'position':   its position in the original alignment,
+        'residue':    the consensus residue, and
+        'frequency':  the residue's frequency in the ingroup.
+        'properties': the degree of conserved properties at this site
+    args : ArgParse object
+        An object containing the command-line parameters provided by the user
 
     Returns
     ----------------
@@ -96,20 +210,27 @@ def format_conserved_alignment(groups, cons_sites, fasta)
     positions = []
     consensus = []
     frequencies = []
+    properties = {'ingroup': [], 'outgroup': [], 'others': []}
     # Build trimmed alignment of only conserved sites
     for site in cons_sites:
-        trimmed_in = trimmed_in + ingroup[:,site['position']-1:site['position']]
-        trimmed_out = trimmed_out + outgroup[:,site['position']-1:site['position']]
-        trimmed_other = trimmed_other + others[:,site['position']-1:site['position']]
+        new_in = ingroup[:,site['position']-1:site['position']]
+        new_out = outgroup[:,site['position']-1:site['position']]
+        new_other = others[:,site['position']-1:site['position']]
+        trimmed_in = trimmed_in + new_in
+        trimmed_out = trimmed_out + new_out
+        trimmed_other = trimmed_other + new_other
         positions.append(site['position'])
         consensus.append(site['residue'])
         frequencies.append(site['frequency'])
+        properties['ingroup'].append(site['properties'])
+        properties['outgroup'].append(conserved_properties(new_out,args.gaps))
+        properties['others'].append(conserved_properties(new_other,args.gaps))
     # Remove initial placeholder columns
     trimmed_in = trimmed_in[:,1:]
     trimmed_out = trimmed_out[:,1:]
     trimmed_other = trimmed_other[:,1:]
     # Handle annotations and display
-    if fasta:
+    if args.fasta_out:
         for record in trimmed_in:
             record.id = "Ingroup_" + record.id
         for record in trimmed_out:
@@ -122,64 +243,18 @@ def format_conserved_alignment(groups, cons_sites, fasta)
         print(format(trimmed_out, 'fasta'))
         print(format(trimmed_other, 'fasta'))
     else:
-        annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies})
-        footer = "Consensus sequence:                 {}".format("".join(consensus))
+        annotations = pd.DataFrame({'Position': positions, 'Consensus': consensus, 'Frequency': frequencies, 'Properties': properties['ingroup']})
+        cons_footer = "Consensus sequence:                 {}".format("".join(consensus))
+        prop_footer = "Conserved properties:               {}".format("".join(properties['ingroup']))
+        footer = "\n".join([cons_footer, prop_footer])
         print(trim_clustal(format(trimmed_in, 'clustal'), "Ingroup conserved sites", footer))
         if args.outgroup:
-            print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences"))
+            footer = "Conserved properties:               {}".format("".join(properties['outgroup']))
+            print(trim_clustal(format(trimmed_out, 'clustal'), "Outgroup sequences", footer))
         if others:
-            print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences"))
+            footer = "Conserved properties:               {}".format("".join(properties['others']))
+            print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences", footer))
         print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
-
-def find_conserved_sites(groups, min_cons, max_gaps):
-    """
-    Arguments
-    ----------------
-    groups : dict of Biopython MSA objects containing
-        'ingroup':  A MSA object of the taxa to be compared for conservation
-        'outgroup': A MSA object of the taxa which cannot share the conserved residue
-        'others':   A MSA object of taxa in neither the ingroup or outgroup
-    min_cons : float
-        The minimum AAI in the column which will be treated as 'conserved'
-    max_gaps : float
-        The maximum proportion of gaps allowed in a column to be considered
-
-    Returns
-    ----------------
-    A list of conserved sites, with each site encoded as a dictionary containing
-        'position':  its position in the original alignment,
-        'residue':   the consensus residue, and
-        'frequency': the residue's frequency in the ingroup.
-    """
-    ingroup = groups['ingroup']
-    outgroup = groups['outgroup']
-    conserved_sites = []
-    for i in range(ingroup.get_alignment_length()):
-        # Extract one column as a string
-        column = ingroup[:,i]
-        # Calculate the frequency of gaps in the column
-        # and disregard it if there are too many
-        gap_freq = column.count('-') / len(column)
-        if gap_freq > max_gaps:
-            continue
-        # Identify the unique residues in the column
-        residues = set(column)
-        if '-' in residues:
-            residues.remove('-')
-        # Get the frequency of each amino acid in the column
-        freqs = {}
-        for aa in sorted(residues):
-            freqs[aa] = column.count(aa) / len(column)
-        # Disregard the column if max frequency is less than identity cutoff
-        if max(freqs.values()) < min_cons:
-            continue
-        # If there is a conserved residue, identify it
-        # Break statement ensures only one residue per site in case of a tie
-        for aa, freq in freqs.items():
-            if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
-                conserved_sites.append({'position': i+1, 'residue': aa, 'frequency': freq})
-                break
-    return conserved_sites
 
 def main(args):
     # Read in alignment file
@@ -190,14 +265,14 @@ def main(args):
             print("{index}\t{header}".format(index=i, header=record.id))
         sys.exit()
     # Recode if necessary
-    if args.recoding is not None:
-        recode_dict = recoding_bins[args.recoding]
+    if args.recode is not None:
+        recode_dict = recoding_bins[args.recode]
         for record in alignment:
             newseq = record.seq
             for k,v in recode_dict.items():
                 newseq = newseq.replace(k,v)
             record.seq = newseq
-        recoding_file = os.path.splitext(args.fasta)[0] + "-recoded-{}.fa".format(args.recoding)
+        recoding_file = os.path.splitext(args.fasta)[0] + "-recoded-{}.fa".format(args.recode)
         AlignIO.write(alignment, recoding_file, "fasta")
 
     ## Late argument validation
@@ -223,15 +298,20 @@ def main(args):
 
     ## Compute identity at each site in the alignment
     # Output has format [{'position': X, 'residue': X, 'frequency': F}, {...}, ...]
-    conserved_sites = find_conserved_sites(groups, args.identity, args.gaps)
+    conserved_sites = find_conserved_sites(groups, args)
 
     ## Print conserved sites
     if args.table:
-        print('Position\tConserved residue\tFrequency')
+        print('Position\tConserved residue\tFrequency\tProperties')
         for site in conserved_sites:
-            print("{position}\t{aa}\t{freq:.3f}".format(position=site['position'], aa=site['residue'], freq=site['frequency']))
+            print("{pos}\t{aa}\t{freq:.3f}\t{prop}".format(
+                    pos=site['position'],
+                    aa=site['residue'],
+                    freq=site['frequency'],
+                    prop=site['properties']
+                ))
     else:
-        format_conserved_alignment(groups, conserved_sites, args.fasta_out)
+        format_conserved_alignment(groups, conserved_sites, args)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -240,6 +320,7 @@ if __name__ == "__main__":
     parser.add_argument('--ingroup', type=int, nargs='+', help="Specify indices of sequences to check for site conservation. Default: all")
     parser.add_argument('--outgroup', type=int, nargs='+', help="Specify indices of sequences which should not be conserved with the ingroup. Default: none")
     parser.add_argument('--identity', '-i', type=float, default=1, help="Set the minimum identity threshold for conservation. Default: %(default)s")
+    parser.add_argument('--properties', '-p', type=float, default=1, help="Set the minimum similarity in chemical properties for conservation analysis. Default: %(default)s")
     parser.add_argument('--gaps', '-g', type=float, default=0.25, help="Set the maximum proportion of gaps allowed in a site for conservation analysis. Default: %(default)s")
     parser.add_argument('--table', '-t', action='store_true', help="Print a summary table instead of a trimmed alignment of the conserved sites.")
     parser.add_argument('--fasta-out', action='store_true', help="Output the trimmed alignment in FASTA format.")
@@ -252,5 +333,7 @@ if __name__ == "__main__":
         sys.exit("Identity threshold must be a proportion between 0 and 1, inclusive.")
     if (args.gaps < 0) or (args.gaps > 1):
         sys.exit("Gaps threshold must be a proportion between 0 and 1, inclusive.")
+    if (args.properties < 0) or (args.properties > 1):
+        sys.exit("Properties threshold must be a proportion between 0 and 1, inclusive.")
     main(args)
 
