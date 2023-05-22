@@ -5,6 +5,10 @@ import argparse
 from Bio import SeqIO
 
 def main(args):
+    if args.list:
+        for record in SeqIO.parse(args.fasta, "fasta"):
+            print(record.id)
+        sys.exit()
     if args.id_file is not None:
         with open(args.id_file) as f:
             file_ids = [line.strip() for line in f.readlines()]
@@ -25,11 +29,12 @@ if __name__ == "__main__":
     parser.add_argument("fasta", metavar="FASTA", help="A multi-sequence FASTA file.")
     parser.add_argument("-d", "--dir", default="", help="A directory to use for the output. Default: current directory")
     parser.add_argument("--id", nargs='+', help="A list of sequence IDs to output. Default: output everything")
-    parser.add_argument("--id-file", help="A file containing a list of sequence IDs, one per line, to output")
+    parser.add_argument("--id-file", help="A file containing a list of sequence IDs, one per line, to output.")
+    parser.add_argument("--list", "-l", action='store_true', help="List the available sequence IDs from the input.")
     args = parser.parse_args()
     if not os.path.isfile(args.fasta):
         sys.exit("The specified file does not exist: {}".format(args.fasta))
     if args.id_file is not None and not os.path.isfile(args.id_file):
-        sys.exit("The specified file does not exist: {}".format(args.in_file))
+        sys.exit("The specified file does not exist: {}".format(args.id_file))
     main(args)
 
