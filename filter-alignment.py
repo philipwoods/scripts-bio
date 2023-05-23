@@ -75,7 +75,9 @@ def conserved_properties(column, max_gaps)
 
     Returns
     ----------------
-    A one-character string indicating the degree of chemical property conservation
+    Tuple containing:
+        1) A float indicating the proportion of chemical properties conserved in the column
+        2) A one-character string indicating the degree of chemical property conservation
     """
     if len(column) < 1:
         return
@@ -84,7 +86,7 @@ def conserved_properties(column, max_gaps)
     # and disregard it if there are too many
     gap_freq = column.count('-') / len(column)
     if gap_freq > max_gaps:
-        return '-'
+        return (0, '-')
 
     # Identify the unique residues in the column
     residues = set(column)
@@ -101,10 +103,10 @@ def conserved_properties(column, max_gaps)
     
     # Return a single-character string
     # The maximum value is 10, encoded as '*'
-    props = str(len(conserved))
+    propstr = str(len(conserved))
     if len(conserved) > 9:
-        props = '*'
-    return props
+        propstr = '*'
+    return (len(conserved)/len(jalview_props), propstr)
 
 def find_conserved_sites(groups, args):
     """
@@ -139,13 +141,18 @@ def find_conserved_sites(groups, args):
         # Disregard the column if max frequency is less than identity cutoff
         if max(freqs.values()) < args.identity:
             continue
+        # Disregard the column if property conservation is too low
+        if not args.recode:
+            prop_cons = conserved_props(column, args.gaps)
+            if prop_cons[0] < args.properties:
+                continue
         # If there is a conserved residue, record and annotate it
         # Break statement ensures only one residue per site in case of a tie
         for aa, freq in freqs.items():
             if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
-                properties = "X"
+                properties = "-"
                 if args.recode is None:
-                    properties = conserved_props(column, args.gaps)
+                    properties = conserved_props(column, args.gaps)[1]
                 site = {
                         'position': i+1,
                         'residue': aa,
@@ -223,8 +230,8 @@ def format_conserved_alignment(groups, cons_sites, args)
         consensus.append(site['residue'])
         frequencies.append(site['frequency'])
         properties['ingroup'].append(site['properties'])
-        properties['outgroup'].append(conserved_properties(new_out,args.gaps))
-        properties['others'].append(conserved_properties(new_other,args.gaps))
+        properties['outgroup'].append(conserved_properties(new_out,args.gaps)[1])
+        properties['others'].append(conserved_properties(new_other,args.gaps)[1])
     # Remove initial placeholder columns
     trimmed_in = trimmed_in[:,1:]
     trimmed_out = trimmed_out[:,1:]
