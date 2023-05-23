@@ -64,7 +64,7 @@ def residue_freqs(column):
         freqs[aa] = column.count(aa) / len(column)
     return freqs
 
-def conserved_properties(column, max_gaps)
+def conserved_properties(column, max_gaps):
     """
     Arguments
     ----------------
@@ -84,14 +84,17 @@ def conserved_properties(column, max_gaps)
 
     # Calculate the frequency of gaps in the column
     # and disregard it if there are too many
-    gap_freq = column.count('-') / len(column)
-    if gap_freq > max_gaps:
+    freqs = residue_freqs(column) 
+    if ('-' in freqs) and (freqs['-'] > max_gaps):
         return (0, '-')
 
     # Identify the unique residues in the column
     residues = set(column)
+    # Remove gaps or undetermined residues
     if '-' in residues:
         residues.remove('-')
+    if 'X' in residues:
+        residues.remove('X')
 
     # Identify shared chemical properties
     conserved = None
@@ -132,18 +135,18 @@ def find_conserved_sites(groups, args):
     conserved_sites = []
     for i in range(ingroup.get_alignment_length()):
         # Extract one column as a string
-        column = ingroup[:,i]
+        column = str(ingroup[:,i])
         # Calculate the frequency of each residue in the column
         freqs = residue_freqs(column)
         # Disregard the column if there are too many gaps
-        if freqs['-'] > args.gaps:
+        if ('-' in freqs) and (freqs['-'] > args.gaps):
             continue
         # Disregard the column if max frequency is less than identity cutoff
         if max(freqs.values()) < args.identity:
             continue
         # Disregard the column if property conservation is too low
         if not args.recode:
-            prop_cons = conserved_props(column, args.gaps)
+            prop_cons = conserved_properties(column, args.gaps)
             if prop_cons[0] < args.properties:
                 continue
         # If there is a conserved residue, record and annotate it
@@ -152,7 +155,7 @@ def find_conserved_sites(groups, args):
             if (freq == max(freqs.values())) and (aa not in outgroup[:,i]):
                 properties = "-"
                 if args.recode is None:
-                    properties = conserved_props(column, args.gaps)[1]
+                    properties = conserved_properties(column, args.gaps)[1]
                 site = {
                         'position': i+1,
                         'residue': aa,
@@ -187,7 +190,7 @@ def trim_clustal(alignment, header, footer=None):
         lines.extend([footer, ''])
     return "\n".join(lines)
 
-def format_conserved_alignment(groups, cons_sites, args)
+def format_conserved_alignment(groups, cons_sites, args):
     """
     Arguments
     ----------------
@@ -230,8 +233,10 @@ def format_conserved_alignment(groups, cons_sites, args)
         consensus.append(site['residue'])
         frequencies.append(site['frequency'])
         properties['ingroup'].append(site['properties'])
-        properties['outgroup'].append(conserved_properties(new_out,args.gaps)[1])
-        properties['others'].append(conserved_properties(new_other,args.gaps)[1])
+        if len(new_out) > 1:
+            properties['outgroup'].append(conserved_properties(str(new_out[:,0]),args.gaps)[1])
+        if len(new_other) > 1:
+            properties['others'].append(conserved_properties(str(new_other[:,0]),args.gaps)[1])
     # Remove initial placeholder columns
     trimmed_in = trimmed_in[:,1:]
     trimmed_out = trimmed_out[:,1:]
@@ -308,6 +313,10 @@ def main(args):
     conserved_sites = find_conserved_sites(groups, args)
 
     ## Print conserved sites
+    # Handle case with no matching conserved sites
+    if len(conserved_sites) < 1:
+        sys.exit("No matching conserved sites were identified.")
+    # Print formatted output
     if args.table:
         print('Position\tConserved residue\tFrequency\tProperties')
         for site in conserved_sites:
