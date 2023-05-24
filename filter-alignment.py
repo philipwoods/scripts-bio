@@ -233,10 +233,16 @@ def format_conserved_alignment(groups, cons_sites, args):
         consensus.append(site['residue'])
         frequencies.append(site['frequency'])
         properties['ingroup'].append(site['properties'])
-        if len(new_out) > 1:
-            properties['outgroup'].append(conserved_properties(str(new_out[:,0]),args.gaps)[1])
-        if len(new_other) > 1:
-            properties['others'].append(conserved_properties(str(new_other[:,0]),args.gaps)[1])
+        if args.recode is None:
+            if len(new_out) > 1:
+                properties['outgroup'].append(conserved_properties(str(new_out[:,0]),args.gaps)[1])
+            if len(new_other) > 1:
+                properties['others'].append(conserved_properties(str(new_other[:,0]),args.gaps)[1])
+        else:
+            if len(new_out) > 1:
+                properties['outgroup'].append('-')
+            if len(new_other) > 1:
+                properties['others'].append('-')
     # Remove initial placeholder columns
     trimmed_in = trimmed_in[:,1:]
     trimmed_out = trimmed_out[:,1:]
