@@ -150,8 +150,13 @@ def print_alignment_hit(hit):
     for hsp in hit['hsps']:
         print("Range {0[num]}: {0[hit_from]} to {0[hit_to]}\n".format(hsp))
         print("Score: {0[bit_score]:.1f} bits({0[score]}), Expect: {0[evalue]:.3g}".format(hsp))
-        stats = {'i': (hsp['identity']/hsp['align_len']), 'p': (hsp['positive']/hsp['align_len']), 'g': (hsp['gaps']/hsp['align_len'])}
-        print("Identities: {0[identity]}/{1}({i:.1%}), Positives: {0[positive]}/{1}({p:.1%}), Gaps: {0[gaps]}/{1}({g:.1%})\n".format(hsp, hsp['align_len'], **stats))
+        identities = "Identities: {0}/{1}({2:.1%}), ".format(hsp['identity'], hsp['align_len'], hsp['identity']/hsp['align_len'])
+        gaps = "Gaps: {0}/{1}({2:.1%})".format(hsp['gaps'], hsp['align_len'], hsp['gaps']/hsp['align_len'])
+        positives = ""
+        # 'positive' key is present for protein BLAST results, but not nucleotide results
+        if 'positive' in hsp:
+            positives = "Positives: {0}/{1}({2:.1%}), ".format(hsp['positive'], hsp['align_len'], hsp['positive']/hsp['align_len'])
+        print(identities, positives, gaps, sep='')
         print(split_sequence(hsp))
         print("")
 
