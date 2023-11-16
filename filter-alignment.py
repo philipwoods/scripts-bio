@@ -91,10 +91,12 @@ def conserved_properties(column, max_gaps):
     # Identify the unique residues in the column
     residues = set(column)
     # Remove gaps or undetermined residues
-    if '-' in residues:
-        residues.remove('-')
-    if 'X' in residues:
-        residues.remove('X')
+    residues.discard('-')
+    residues.discard('X')
+    # If the column is all gaps or all undetermined,
+    # residues will now be empty. Handle this as above.
+    if len(residues) == 0:
+        return (0, '-')
 
     # Identify shared chemical properties
     conserved = None
