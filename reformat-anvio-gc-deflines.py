@@ -7,7 +7,7 @@ import argparse
 # is the following when you ask for unconcatenated alignments:
 # >TEMPID|gene_cluster:GC|genome_name:GENOME_NAME|gene_callers_id:GENE_ID
 # This is not super useful sometimes, so we want to convert to:
-# >GENOME_NAME___GENE_ID|gene_cluster:GC
+# >GENOME_NAME___GENE_ID|GC
 
 def main(args):
     if args.inplace:
@@ -23,7 +23,7 @@ def main(args):
                 fields = line.split("|")
                 genome = fields[2].split(":")[1].strip()
                 geneid = fields[3].split(":")[1].strip()
-                cluster = fields[1].strip()
+                cluster = fields[1].split(":")[1].strip()
                 output.write(">{name}___{gene}|{gc}\n".format(name=genome,gene=geneid,gc=cluster))
     if args.inplace:
         os.replace(tmpfile, args.fasta)
@@ -34,7 +34,7 @@ if __name__ == "__main__":
             "(without the --concatenate flag) to be more useful than the default.")
     epil = ("The default defline format from anvi-get-sequences-for-gene-clusters (without the "
             "--concatenate flag) is: '>######|gene_cluster:GC|genome_name:GENOME_NAME|gene_callers_id:GENE_ID'. "
-            "This script reformats these to: '>GENOME_NAME___GENE_ID|gene_cluster:GC'")
+            "This script reformats these to: '>GENOME_NAME___GENE_ID|GC'")
     parser = argparse.ArgumentParser(description=desc, epilog=epil)
     parser.add_argument('fasta', help="FASTA file from anvi-get-sequences-from-gene-clusters")
     parser.add_argument('-i', '--inplace', action='store_true',
