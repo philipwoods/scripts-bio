@@ -90,7 +90,11 @@ DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 functions_temp="${out_dir}/functions_temp.tab"
 sequences_temp="${out_dir}/sequence_temp.fasta"
 
-sequences_out="${out_dir}/${annotation_src}_${search_term}.fasta"
+seqtype="nucl"
+if [[ -n $aa_option ]]; then
+    seqtype="prot"
+fi
+sequences_out="${out_dir}/${annotation_src}_${search_term}_${seqtype}.fasta"
 printf "" > "${sequences_out}"
 
 while read name db; do
