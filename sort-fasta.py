@@ -5,12 +5,13 @@ import argparse
 from Bio import SeqIO
 
 def main(args):
-    records = SeqIO.parse(args.fasta, "fasta"):
+    records = SeqIO.parse(args.fasta, "fasta")
     # The record ID is anything before a space in the defline
     ids = [record.id for record in records]
     ids.sort()
     for seq_id in ids:
-        for record in records:
+        # SeqIO.parse returns an iterator not a list, so we need to regenerate it
+        for record in SeqIO.parse(args.fasta, "fasta"):
             if record.id == seq_id:
                 SeqIO.write(record, sys.stdout, "fasta")
 
