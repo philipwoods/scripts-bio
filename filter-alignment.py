@@ -275,6 +275,12 @@ def format_conserved_alignment(groups, cons_sites, args):
             footer = "Conserved properties:               {}".format("".join(properties['others']))
             print(trim_clustal(format(trimmed_other, 'clustal'), "Other sequences", footer))
         print(annotations.T.to_string(header=False, float_format='{:.2f}'.format))
+        print("")
+        print("Settings")
+        print("---------------------------")
+        print("Residue identity:   >={}".format(args.identity))
+        print("Prop. conservation: >={}".format(args.properties))
+        print("Max. allowed gaps:    {}".format(args.gaps))
 
 def main(args):
     # Read in alignment file
