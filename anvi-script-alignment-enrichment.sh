@@ -69,67 +69,15 @@ done
 DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 ###
 
-# Split the external genomes file into columns.
-name_file=$(mktemp)
-db_file=$(mktemp)
-cut -f 1 "${in_file}" | sed '1d' > "${name_file}"
-cut -f 2 "${in_file}" | sed '1d' > "${db_file}"
+## PSEUDOCODE
+# rewrite parse-function-frequency into parse-alignment-column-frequencies
+# counts are alignment lengths or protein length? mode switch?
 
-echo "Beginning annotation export:"
-# Get each (name, database) pair.
-while read -u 3 genome_name && read -u 4 contigs_db; do
-    # Make sure the database file exists.
-    if [ ! -e "${contigs_db}" ]; then
-        echo "File does not exist: ${contigs_db}"
-        exit 1
-    fi
-
-    # Output annotations for each database using the associated name for the output file.
-    echo "Exporting annotations for ${genome_name}..."
-    # As of anvio v7.1, the function export file is formatted as follows:
-    # gene_callers_id   source   accession   function   e_value
-    tmp=$(mktemp)
-    anvi-export-functions -c "$contigs_db" --annotation-sources "${annotation}" -o "${tmp}"
-    # Cut out the 'function' column and discard everything else.
-    # If you change the name of the <functions-out> file, make sure to check in the
-    # parse-function-frequency.py helper script to make sure it will still work.
-    functions_out="${out_dir}/${genome_name}-functions.tmp"
-    cut -f 3,4  "${tmp}" > "${functions_out}"
-    # Clean up temporary files.
-    rm -f "${tmp}"
-done 3<"${name_file}" 4<"${db_file}"
 
 # Helper Python script parses each file and creates tab-delimited output.
-echo "Annotation export complete."
-echo "Consolidating records..."
-freq_file="${out_dir}/frequency-${annotation}-${mode}.tsv"
-counts_file="${out_dir}/${mode}-counts.tmp"
-python "${DIR}/parse-function-frequency.py" "${out_dir}" "${mode}" "${freq_file}" "${counts_file}"
-# The counts file created by the helper script is useful in annotation mode,
-# but in gene mode we need to make some changes.
-if [[ $mode == "gene" ]]; then
-    echo "Counting genes..."
-    printf "genome\tN\n" > "${counts_file}"
-    while read -u 3 genome_name && read -u 4 contigs_db; do
-        tmp=$(mktemp)
-        anvi-export-gene-calls -c "${contigs_db}" -o $tmp --gene-caller prodigal --skip-sequence-reporting
-        # The gene calls file has one line per gene call and one additional line for the header.
-        count=$(wc -l < $tmp)
-        count=$((count-1))
-        printf "${genome_name}\t${count}\n" >> "${counts_file}"
-        rm -f $tmp
-    done 3<"${name_file}" 4<"${db_file}"
-fi
-
-# Clean up files
-echo "Cleaning temporary files..."
-while read -u 3 genome_name; do
-    functions_out="${out_dir}/${genome_name}-functions.tmp"
-    rm -f "${functions_out}"
-done 3<"${name_file}"
-
-rm -f "${name_file}"
-rm -f "${db_file}"
+freq_file="${out_dir}/residue-frequencies.tsv"
+counts_file="${out_dir}/residue-counts.tmp"
+python "${DIR}/parse-alignment-column-frequencies.py" "${out_dir}" "${freq_file}" "${counts_file}"
 
 ###
 
