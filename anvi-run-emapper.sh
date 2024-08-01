@@ -9,7 +9,7 @@ print_usage() {
 }
 
 print_version() {
-    echo "Last modified 9 Oct 2021"
+    echo "Last modified 25 Jul 2024"
 }
 
 in_dir=""
@@ -75,7 +75,7 @@ if [[ -z $emapper_version ]]; then # If we are running this before emapper...
     echo "Load the eggnog_mapper environment in anaconda3."
     echo "Verify the file ALL_GENES.fa is in your results directory, then run the following:"
     echo ""
-    echo "emapper.py --data_dir /data1/sw/anaconda3-2019.07/envs/eggnog_mapper/lib/python2.7/site-packages/data/ -m diamond -o ALL_GENES -i ${results_dir}/ALL_GENES.fa --output_dir ${results_dir} --cpu <num_threads>"
+    echo "emapper.py --data_dir /data1/db/emapper/ -m diamond -o ALL_GENES -i ${results_dir}/ALL_GENES.fa --output_dir ${results_dir} --cpu <num_threads>"
     echo ""
     echo "Once this completes, run emapper.py --version and note the version number."
     echo "Rerun this script, pointing to the same directories as the first time, and also providing"
@@ -126,7 +126,7 @@ else # If we are running this after emapper...
         fi
         filename=$(basename $i)
         echo "Processing $filename"
-        anvi-script-run-eggnog-mapper --annotation "${results_dir}/${filename}.emapper.annotations" --use-version $emapper_version -c $i --cog-data-dir /data1/projects/pwoods/Anvio/cog_collection/
+        anvi-script-run-eggnog-mapper --annotation "${results_dir}/${filename}.emapper.annotations" --use-version $emapper_version -c $i
     done
     echo "Done!"
 fi
