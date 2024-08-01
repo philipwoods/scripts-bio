@@ -73,7 +73,7 @@ def main():
         # we know this will always have only a single value because it only has one row.
         # We need to extract the value before dividing because Series / Series doesn't
         # work when they have different lengths.
-        grp_count = counts_df[members].sum(axis=1)[0]
+        grp_count = counts_df[members].sum(axis=1).iloc[0]
         out_df["p_{}".format(group)] = frequency_df[members].sum(axis=1) / grp_count
         out_df["N_{}".format(group)] = grp_count
     # Use the proportions and counts just added to fill the associated_groups column.

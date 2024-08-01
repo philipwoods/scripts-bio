@@ -73,7 +73,7 @@ def main():
                 if accession not in freq_df['accession'].values:
                     newrow = [accession, function]
                     newrow.extend([0]*len(genomes))
-                    freq_df = freq_df.append(pd.DataFrame(columns=cols, data=[newrow]))
+                    freq_df = pd.concat([freq_df, pd.DataFrame(columns=cols, data=[newrow])])
             # We have to handle annotations differently depending on the output mode
             if mode == 'annotation':
                 # Increment the annotation count(s) for this genome by stepping through
@@ -92,7 +92,7 @@ def main():
     count_df = pd.DataFrame(columns=['genome', 'N'])
     for genome in genomes:
         count = freq_df[genome].sum()
-        count_df = count_df.append(pd.DataFrame([[genome, count]], columns=['genome', 'N']))
+        count_df = pd.concat([count_df, pd.DataFrame([[genome, count]], columns=['genome', 'N'])])
 
     freq_df.to_csv(freq_out, sep='\t', index=False)
     count_df.to_csv(count_out, sep='\t', index=False)
