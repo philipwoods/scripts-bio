@@ -3,7 +3,7 @@
 print_usage() {
     echo "Synopsis:"
     echo "  anvi-script-get-annotated-genome [-h] [-v] -c CONTIGS_DB -n GENOME_NAME"
-    echo "                                   -o OUT_DIR [-p PAN_DB]"
+    echo "                                   -f ANNOTATION_SRC -o OUT_DIR [-p PAN_DB]"
     echo ""
     echo "Description:"
     echo "  This script exports the contigs from the specified Anvi'o contigs database"
@@ -14,13 +14,10 @@ print_usage() {
     echo "  also include the gene cluster ID. If a pangenome database is provided, then"
     echo "  the appropriate genome name must also be provided."
     echo ""
-    echo "  Currently (in anvio v7.1) the only annotation source available in GFF3 files"
-    echo "  is COG20_FUNCTION. It is very likely that an option to specify the source"
-    echo "  will be added soon, so keep an eye out for that."
-#    echo "  The most useful annotation sources for genome gazing are probably Pfam,"
-#    echo "  COG20_FUNCTION, KOfam, EGGNOG_BACT, and Transfer_RNAs."
-#    echo "  For a more general overview, KEGG_Module, KEGG_Class, COG20_CATEGORY, and"
-#    echo "  COG20_PATHWAY may also be helpful."
+    echo "  The most useful annotation sources for genome gazing are probably Pfam,"
+    echo "  COG20_FUNCTION, KOfam, EGGNOG_BACT, and Transfer_RNAs."
+    echo "  For a more general overview, KEGG_Module, KEGG_Class, COG20_CATEGORY, and"
+    echo "  COG20_PATHWAY may also be helpful."
     echo ""
     echo "Options:"
     echo "  -h: Display this help text and exit."
@@ -28,22 +25,22 @@ print_usage() {
     echo "  -p: Specify Anvi'o pangenome database to use."
     echo "  -n: Specify genome name to use."
     echo "  -c: Specify Anvi'o contigs database to use."
-#    echo "  -f: Specify annotation source for contigs database."
-#    echo "      To see supported sources, run anvi-export-functions -c CONTIGS_DB -l."
+    echo "  -f: Specify annotation source for contigs database."
+    echo "      To see supported sources, run anvi-export-functions -c CONTIGS_DB -l."
     echo "  -o: Specify output directory."
 }
 
 print_version() {
-    echo "Last updated 22 October 2021"
+    echo "Last updated 25 July 2024"
 }
 
 pan_db=""
 genome_name=""
 contigs_db=""
-#annotation_src=""
+annotation_src=""
 out_dir=""
 
-while getopts ":hvp:n:c:o:" opt; do
+while getopts ":hvp:n:c:f:o:" opt; do
     case $opt in 
         h)  print_usage
             exit 1
@@ -57,8 +54,8 @@ while getopts ":hvp:n:c:o:" opt; do
             ;;
         c)  contigs_db="${OPTARG}"
             ;;
- #       f)  annotation_src="${OPTARG}"
- #           ;;
+        f)  annotation_src="${OPTARG}"
+            ;;
         o)  out_dir="${OPTARG}"
             ;;
         \?) echo "Invalid option: -${OPTARG}. Use the -h option for more information.">&2
@@ -109,15 +106,13 @@ if [ ! -e "$genome_dir" ] || [ ! -d "$genome_dir" ]; then
     mkdir "$genome_dir"
 fi
 contigs_out="${genome_dir}/${genome_name}_contigs.fa"
-#features_out="${genome_dir}/${genome_name}_${annotation_src}.gff3"
-features_out="${genome_dir}/${genome_name}_COG20_FUNCTION.gff3"
+features_out="${genome_dir}/${genome_name}_${annotation_src}.gff3"
 trnas_out="${genome_dir}/${genome_name}_tRNAs.tab"
 
 echo "Exporting contigs database..."
 anvi-export-contigs -c "$contigs_db" -o "$contigs_out"
 echo "Exporting feature annotations..."
-anvi-get-sequences-for-gene-calls -c "$contigs_db" --export-gff3 -o "$features_out"
-#anvi-get-sequences-for-gene-calls -c "$contigs_db" --export-gff3 -o "$features_out" --annotation-source "${annotation_src}"
+anvi-get-sequences-for-gene-calls -c "$contigs_db" --export-gff3 -o "$features_out" --annotation-source "${annotation_src}"
 anvi-export-functions -c "$contigs_db" --annotation-sources "Transfer_RNAs" -o "$trnas_out"
 if [ -n "$pan_db" ]; then
     pan_name=$(basename "$pan_db" .db)
