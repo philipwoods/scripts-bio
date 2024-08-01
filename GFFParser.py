@@ -1,11 +1,15 @@
-#!/usr/bin/env python3
 """Parse GFF files into features attached to Biopython SeqRecord objects.
+
 This deals with GFF3 formatted files, a tab delimited format for storing
 sequence features and annotations:
+
 http://www.sequenceontology.org/gff3.shtml
+
 It will also deal with older GFF versions (GTF/GFF2):
+
 http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml
 http://mblab.wustl.edu/GTF22.html
+
 The implementation utilizes map/reduce parsing of GFF using Disco. Disco
 (http://discoproject.org) is a Map-Reduce framework for Python utilizing
 Erlang for parallelization. The code works on a single processor without
@@ -17,7 +21,6 @@ import re
 import collections
 import io
 import itertools
-import warnings
 import six
 from six.moves import urllib
 # Make defaultdict compatible with versions of python older than 2.4
@@ -27,15 +30,22 @@ except AttributeError:
     import _utils
     collections.defaultdict = _utils.defaultdict
 
-from Bio.Seq import UnknownSeq
+unknown_seq_avail = False
+try:
+    from Bio.Seq import UnknownSeq
+    unknown_seq_avail = True
+except ImportError:
+    # Starting with biopython 1.81, has been removed
+    from Bio.Seq import _UndefinedSequenceData
+    from Bio.Seq import Seq
+
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqFeature
 from Bio import SeqIO
-from Bio import BiopythonDeprecationWarning
-warnings.simplefilter("ignore", BiopythonDeprecationWarning)
 
 def _gff_line_map(line, params):
     """Map part of Map-Reduce; parses a line of GFF into a dictionary.
+
     Given an input line from a GFF file, this:
     - decides if the file passes our filtering limits
     - if so:
@@ -61,9 +71,10 @@ def _gff_line_map(line, params):
     gff3_kw_pat = re.compile("\w+=")
     def _split_keyvals(keyval_str):
         """Split key-value pairs in a GFF2, GTF and GFF3 compatible way.
+
         GFF3 has key value pairs like:
           count=9;gene=amx-2;sequence=SAGE:aacggagccg
-        GFF2 and GTF have:           
+        GFF2 and GTF have:
           Sequence "Y74C9A" ; Note "Clone Y74C9A; Genbank AC024206"
           name "fgenesh1_pg.C_chr_1000003"; transcriptId 869
         """
@@ -124,6 +135,7 @@ def _gff_line_map(line, params):
 
     def _nest_gff2_features(gff_parts):
         """Provide nesting of GFF2 transcript parts with transcript IDs.
+
         exons and coding sequences are mapped to a parent with a transcript_id
         in GFF2. This is implemented differently at different genome centers
         and this function attempts to resolve that and map things to the GFF3
@@ -163,7 +175,7 @@ def _gff_line_map(line, params):
         should_do = True
         if params.limit_info:
             for limit_name, limit_values in params.limit_info.items():
-                cur_id = tuple([parts[i] for i in 
+                cur_id = tuple([parts[i] for i in
                     params.filter_info[limit_name]])
                 if cur_id not in limit_values:
                     should_do = False
@@ -245,6 +257,7 @@ def _gff_line_reduce(map_results, out, params):
 
 class _MultiIDRemapper:
     """Provide an ID remapping for cases where a parent has a non-unique ID.
+
     Real life GFF3 cases have non-unique ID attributes, which we fix here
     by using the unique sequence region to assign children to the right
     parent.
@@ -271,13 +284,15 @@ class _MultiIDRemapper:
 
 class _AbstractMapReduceGFF:
     """Base class providing general GFF parsing for local and remote classes.
+
     This class should be subclassed to provide a concrete class to parse
     GFF under specific conditions. These classes need to implement
     the _gff_process function, which returns a dictionary of SeqRecord
     information.
     """
     def __init__(self, create_missing=True):
-        """Initialize GFF parser 
+        """Initialize GFF parser
+
         create_missing - If True, create blank records for GFF ids not in
         the base_dict. If False, an error will be raised.
         """
@@ -291,10 +306,11 @@ class _AbstractMapReduceGFF:
 
     def parse(self, gff_files, base_dict=None, limit_info=None):
         """Parse a GFF file, returning an iterator of SeqRecords.
+
         limit_info - A dictionary specifying the regions of the GFF file
         which should be extracted. This allows only relevant portions of a file
         to be parsed.
-        
+
         base_dict - A base dictionary of SeqRecord objects which may be
         pre-populated with sequences and other features. The new features from
         the GFF file will be added to this dictionary.
@@ -305,6 +321,7 @@ class _AbstractMapReduceGFF:
     def parse_in_parts(self, gff_files, base_dict=None, limit_info=None,
             target_lines=None):
         """Parse a region of a GFF file specified, returning info as generated.
+
         target_lines -- The number of lines in the file which should be used
         for each partial parse. This should be determined based on available
         memory.
@@ -322,6 +339,7 @@ class _AbstractMapReduceGFF:
 
     def parse_simple(self, gff_files, limit_info=None, target_lines=1):
         """Simple parse which does not build or nest features.
+
         This returns a simple dictionary representation of each line in the
         GFF file.
         """
@@ -360,6 +378,7 @@ class _AbstractMapReduceGFF:
 
     def _add_directives(self, base, directives):
         """Handle any directives or meta-data in the GFF file.
+
         Relevant items are added as annotation meta-data to each record.
         """
         dir_keyvals = collections.defaultdict(list)
@@ -372,20 +391,46 @@ class _AbstractMapReduceGFF:
                 else:
                     val = tuple(parts[1:])
                 # specific directives that need special handling
-                if key == "sequence-region": # convert to Python 0-based coordinates
-                    val = (val[0], int(val[1]) - 1, int(val[2]))
+                if key == "sequence-region":  # convert to Python 0-based coordinates
+                    if len(val) == 2:  # handle regions missing contig
+                        val = (int(val[0]) - 1, int(val[1]))
+                    elif len(val) == 3:
+                        val = (val[0], int(val[1]) - 1, int(val[2]))
                 dir_keyvals[key].append(val)
         for key, vals in dir_keyvals.items():
             for rec in base.values():
                 self._add_ann_to_rec(rec, key, vals)
         return base
 
+    def _get_matching_record_id(self, base, find_id):
+        """Find a matching base record with the test identifier, handling tricky cases.
+
+        NCBI IDs https://en.wikipedia.org/wiki/FASTA_format#NCBI_identifiers
+        """
+        # Straight matches for identifiers
+        if find_id in base:
+            return find_id
+        # NCBI style IDs in find_id
+        elif find_id and find_id.find("|") > 0:
+            for test_id in [x.strip() for x in find_id.split("|")[1:]]:
+                if test_id and test_id in base:
+                    return test_id
+        # NCBI style IDs in base IDs
+        else:
+            for base_id in base.keys():
+                if base_id.find("|") > 0:
+                    for test_id in [x.strip() for x in base_id.split("|")[1:]]:
+                        if test_id and test_id == find_id:
+                            return base_id
+        return None
+
     def _add_seqs(self, base, recs):
         """Add sequence information contained in the GFF3 to records.
         """
         for rec in recs:
-            if rec.id in base:
-                base[rec.id].seq = rec.seq
+            match_id = self._get_matching_record_id(base, rec.id)
+            if match_id:
+                base[match_id].seq = rec.seq
             else:
                 base[rec.id] = rec
         return base
@@ -420,7 +465,7 @@ class _AbstractMapReduceGFF:
             # one child, do not nest it
             if len(cur_children) == 1:
                 rec_id, child = cur_children[0]
-                loc = (child.location.nofuzzy_start, child.location.nofuzzy_end)
+                loc = (child.location.start, child.location.end)
                 rec, base = self._get_rec(base,
                                           dict(rec_id=rec_id, location=loc))
                 rec.features.append(child)
@@ -434,6 +479,7 @@ class _AbstractMapReduceGFF:
 
     def _identify_dup_ids(self, parents):
         """Identify duplicated ID attributes in potential nested parents.
+
         According to the GFF3 spec ID attributes are supposed to be unique
         for a file, but this is not always true in practice. This looks
         for duplicates, and provides unique IDs sorted by locations.
@@ -491,31 +537,37 @@ class _AbstractMapReduceGFF:
         """Retrieve a record to add features to.
         """
         max_loc = info_dict.get('location', (0, 1))[1]
-        try:
-            cur_rec = base[info_dict['rec_id']]
+        match_id = self._get_matching_record_id(base, info_dict['rec_id'])
+        if match_id:
+            cur_rec = base[match_id]
             # update generated unknown sequences with the expected maximum length
-            if isinstance(cur_rec.seq, UnknownSeq):
+            if unknown_seq_avail and isinstance(cur_rec.seq, UnknownSeq):
                 cur_rec.seq._length = max([max_loc, cur_rec.seq._length])
+            elif not unknown_seq_avail and isinstance(cur_rec.seq._data, _UndefinedSequenceData):
+                cur_rec.seq._data._length = max([max_loc, cur_rec.seq._data._length])
             return cur_rec, base
-        except KeyError:
-            if self._create_missing:
+        elif self._create_missing:
+            if unknown_seq_avail:
                 new_rec = SeqRecord(UnknownSeq(max_loc), info_dict['rec_id'])
-                base[info_dict['rec_id']] = new_rec
-                return new_rec, base
             else:
-                raise
+                new_rec = SeqRecord(Seq(None, length=max_loc), info_dict['rec_id'])
+            base[info_dict['rec_id']] = new_rec
+            return new_rec, base
+        else:
+            raise KeyError("Did not find matching record in %s for %s" %
+                           (base.keys(), info_dict))
 
     def _add_missing_parent(self, base, parent_id, cur_children):
         """Add a new feature that is missing from the GFF file.
         """
         base_rec_id = list(set(c[0] for c in cur_children))
-        child_strands = list(set(c[1].strand for c in cur_children))
+        child_strands = list(set(c[1].location.strand for c in cur_children))
         inferred_strand = child_strands[0] if len(child_strands) == 1 else None
         assert len(base_rec_id) > 0
         feature_dict = dict(id=parent_id, strand=inferred_strand,
                             type="inferred_parent", quals=dict(ID=[parent_id]),
                             rec_id=base_rec_id[0])
-        coords = [(c.location.nofuzzy_start, c.location.nofuzzy_end)
+        coords = [(c.location.start, c.location.end)
                   for r, c in cur_children]
         feature_dict["location"] = (min([c[0] for c in coords]),
                                     max([c[1] for c in coords]))
@@ -532,9 +584,10 @@ class _AbstractMapReduceGFF:
     def _get_feature(self, feature_dict):
         """Retrieve a Biopython feature from our dictionary representation.
         """
-        location = SeqFeature.FeatureLocation(*feature_dict['location'])
-        new_feature = SeqFeature.SeqFeature(location, feature_dict['type'],
-                id=feature_dict['id'], strand=feature_dict['strand'])
+        #location = SeqFeature.FeatureLocation(*feature_dict['location'])
+        rstart, rend = feature_dict['location']
+        new_feature = SeqFeature.SeqFeature(SeqFeature.SimpleLocation(start=rstart, end=rend, strand=feature_dict['strand']), feature_dict['type'],
+                id=feature_dict['id'])
         # Support for Biopython 1.68 and above, which removed sub_features
         if not hasattr(new_feature, "sub_features"):
             new_feature.sub_features = []
@@ -612,9 +665,10 @@ class GFFParser(_AbstractMapReduceGFF):
     def __init__(self, line_adjust_fn=None, create_missing=True):
         _AbstractMapReduceGFF.__init__(self, create_missing=create_missing)
         self._line_adjust_fn = line_adjust_fn
-    
+
     def _gff_process(self, gff_files, limit_info, target_lines):
         """Process GFF addition without any parallelization.
+
         In addition to limit filtering, this accepts a target_lines attribute
         which provides a number of lines to parse before returning results.
         This allows partial parsing of a file to prevent memory issues.
@@ -661,7 +715,7 @@ class GFFParser(_AbstractMapReduceGFF):
                 yield out_info.get_results()
                 out_info = _GFFParserLocalOut((target_lines is not None and
                         target_lines > 1))
-            if (results and results[0][0] == 'directive' and 
+            if (results and results[0][0] == 'directive' and
                     results[0][1] == 'FASTA'):
                 found_seqs = True
                 break
@@ -674,8 +728,13 @@ class GFFParser(_AbstractMapReduceGFF):
             def __next__(self):
                 return next(self._iter)
             next = __next__
-            def read(self):
-                return "".join(l for l in self._iter)
+            def read(self, size=-1):
+                if size < 0:
+                    return "".join(l for l in self._iter)
+                elif size == 0:
+                    return ""  # Used by Biopython to sniff unicode vs bytes
+                else:
+                    raise NotImplementedError
             def readline(self):
                 try:
                     return next(self._iter)
@@ -693,7 +752,7 @@ class DiscoGFFParser(_AbstractMapReduceGFF):
     """
     def __init__(self, disco_host, create_missing=True):
         """Initialize parser.
-        
+
         disco_host - Web reference to a Disco host which will be used for
         parallelizing the GFF reading job.
         """
@@ -707,7 +766,7 @@ class DiscoGFFParser(_AbstractMapReduceGFF):
         # make these imports local; only need them when using disco
         import simplejson
         import disco
-        # absolute path names unless they are special disco files 
+        # absolute path names unless they are special disco files
         full_files = []
         for f in gff_files:
             if f.split(":")[0] != "disco":
@@ -771,6 +830,7 @@ def _file_or_handle(fn):
 
 class GFFExaminer:
     """Provide high level details about a GFF file to refine parsing.
+
     GFF is a spec and is provided by many different centers. Real life files
     will present the same information in slightly different ways. Becoming
     familiar with the file you are dealing with is the best way to extract the
@@ -780,7 +840,7 @@ class GFFExaminer:
     def __init__(self):
         self._filter_info = dict(gff_id = [0], gff_source_type = [1, 2],
                 gff_source = [1], gff_type = [2])
-    
+
     def _get_local_params(self, limit_info=None):
         class _LocalParams:
             def __init__(self):
@@ -789,16 +849,18 @@ class GFFExaminer:
         params.limit_info = limit_info
         params.filter_info = self._filter_info
         return params
-    
+
     @_file_or_handle
     def available_limits(self, gff_handle):
         """Return dictionary information on possible limits for this file.
+
         This returns a nested dictionary with the following structure:
-        
+
         keys -- names of items to filter by
         values -- dictionary with:
             keys -- filter choice
             value -- counts of that filter in this file
+
         Not a parallelized map-reduce implementation.
         """
         cur_limits = dict()
@@ -828,10 +890,12 @@ class GFFExaminer:
     @_file_or_handle
     def parent_child_map(self, gff_handle):
         """Provide a mapping of parent to child relationships in the file.
+
         Returns a dictionary of parent child relationships:
+
         keys -- tuple of (source, type) for each parent
         values -- tuple of (source, type) as children of that parent
-        
+
         Not a parallelized map-reduce implementation.
         """
         # collect all of the parent and child types mapped to IDs
