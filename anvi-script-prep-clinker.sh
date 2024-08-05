@@ -81,11 +81,13 @@ for f in ${indir}/*.db; do
     fi
 done
 
+echo "Cleaning GFFs of reserved characters..."
 # Clean the GFFs of reserved characters
 for f in ${indir}/*.gff; do
     $DIR/clean-gff-products.sh $f
 done
 
+echo "Converting to GenBank format..."
 # Convert GFF to GB format
 for f in ${indir}/*.gff; do
     $DIR/gff_to_genbank.py $f ${f%.gff}.fa
