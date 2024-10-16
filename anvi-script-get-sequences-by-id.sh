@@ -10,7 +10,7 @@ print_usage() {
     echo "  the associated genomes for genes based on gene caller IDs. These gene"
     echo "  sequences are then exported into a FASTA file either as nucleotide or amino"
     echo "  acid sequences, depending on the use of the -a flag. Nucleotide sequences are"
-    echo "  exported by default. The ID file should have two tab-separated columns: id"
+    echo "  exported by default. The ID file should have two tab-separated columns with headers id"
     echo "  and function. The id column should have a comma-separated list of gene IDs"
     echo "  (i.e. 1,2,3), and the function column should have a comma-separated list of"
     echo "  notes corresponding to the ids (e.g. Function A,Function B,Function C). Each"
