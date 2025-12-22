@@ -5,6 +5,7 @@ import argparse
 import tempfile
 import subprocess
 import pandas as pd
+import shutil
 
 def main(args):
     # Get absolute locations for relevant files and directories
@@ -41,5 +42,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not os.path.isfile(args.fasta):
         sys.exit("Specified file does not exist: {}".format(args.fasta))
+    if shutil.which("blastp") is None:
+        sys.exit("BLAST not found. Please install BLAST or activate an appropriate virtual environment.")
     main(args)
 
