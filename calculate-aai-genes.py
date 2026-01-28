@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=desc, epilog=epil)
     parser.add_argument("fasta", metavar="FASTA", help="A multi-sequence FASTA file.")
     parser.add_argument("directory", help="The directory to put output files in.")
-    parser.add_argument("-b" "--backend", choices=['blastp', 'diamond'], default='diamond', help="The program to use for sequence comparison. Default: %(default)s")
+    parser.add_argument("-b", "--backend", choices=['blastp', 'diamond'], default='diamond', help="The program to use for sequence comparison. Default: %(default)s")
     parser.add_argument("-t", "--threads", default=1, type=int, help="Number of threads for the BLAST search. Default: %(default)s")
     parser.add_argument("--max-target-seqs", default=100, type=int, help="Maximum number of matches allowed per query sequence. Default: %(default)s")
     args = parser.parse_args()
