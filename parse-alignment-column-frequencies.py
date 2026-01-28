@@ -7,6 +7,27 @@ from Bio.Align import MultipleSeqAlignment
 import pandas as pd
 from collections import defaultdict
 
+def get_AA_frequencies(alignment_column, group):
+    """
+    Inputs:
+        alignment_column: str
+        group: str
+    Outputs:
+        
+    """
+    datacolp = []
+    datacolN = []
+    data = {'accession': ['A', 'C', 'D', 'E', 'F',
+                          'G', 'H', 'I', 'K', 'L',
+                          'M', 'N', 'P', 'Q', 'R',
+                          'S', 'T', 'V', 'W', 'Y', '-']}
+    for residue in data['accession']:
+        datacolp.append(alignment_column.count(residue)/len(alignment_column))
+        datacolN.append(len(alignment_column))
+    data["p_{}".format(group)] = datacolp
+    data["N_{}".format(group)] = datacolN
+    return pd.DataFrame(data=data)
+
 def main():
     help_string = """
     Synopsis:
@@ -51,20 +72,25 @@ def main():
     # Get a dictionary of the form {'G1': [seqid0, seqid2,...], 'G2': [seqid1, seqid3,...]}
     groups = groups_db.groupby('group').groups
 
-    # create subset alignments of each group
+    # Create subset alignments of each group
     group_seqs = defaultdict(list)
     group_alns = {}
     for seqrecord in alignment:
         for group in groups.keys():
             if seqrecord.id in groups[group]:
                 group_seqs[group].append(seqrecord)
-    print(group_seqs)
     for group in groups.keys():
         group_alns[group] = MultipleSeqAlignment(group_seqs[group])
-        print(group_alns[group])
-
-    out_df = pd.DataFrame(data=amino_acids)
-    out_df['function'] = "NA"
+    # Build output dataframes for each column of the alignment
+    for col in range(alignment.get_alignment_length()):
+        out_df = pd.DataFrame(data=amino_acids)
+        out_df['function'] = "NA"
+        for group, group_aln in group_alns.items():
+            frequencies = get_AA_frequencies(group_aln[:, col], group)
+            out_df = out_df.merge(frequencies, on='accession')
+        # output the out_df for this column
+        output_path = os.path.join(output_dir, "column-{}.tsv".format(col))
+        out_df.to_csv(output_path, sep='\t', index=False)
 
 if __name__ == "__main__":
     main()
