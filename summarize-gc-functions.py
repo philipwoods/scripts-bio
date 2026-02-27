@@ -6,13 +6,16 @@ import tempfile
 import pandas as pd
 
 def main(args):
+    if args.clusters is None:
+        clusters = os.popen("cat " + args.summary + " | cut -f 2 | sed '1d' | uniq | tr '\n' ','").read()[:-1]
+        args.clusters = clusters.split(',')
     # Declare a header and initialize the output buffer
     header = ['gene_cluster_id']
     header.extend(args.annotation_sources)
     out_buffer = ['\t'.join(header)]
     # Add information for each requested cluster
     for i, cluster in enumerate(args.clusters):
-        print("Working on cluster {c} ({n} of {t})".format(c=cluster, n=i, t=len(args.clusters)))
+        print("Working on cluster {c} ({n} of {t})".format(c=cluster, n=i+1, t=len(args.clusters)))
         out_line = [cluster]
         temp = os.path.join(tempfile.gettempdir(), "temp_{}".format(cluster))
         # Grep for the cluster to reduce memory cost
@@ -45,8 +48,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=desc, epilog=epil)
     parser.add_argument("-s", "--summary", required=True,
         help="The output of anvi-summarize, describing gene clusters in a pangenome.")
-    parser.add_argument("-c", "--clusters", required=True, nargs='+', metavar="CLUSTER",
-        help="The ID of the gene cluster(s) to be summarized.")
+    parser.add_argument("-c", "--clusters", nargs='+', metavar="CLUSTER",
+        help="The ID of the gene cluster(s) to be summarized. If no value is provided, all clusters will be analyzed.")
     parser.add_argument("-a", "--annotation-sources", required=True, nargs='+', metavar="SOURCE",
         help="The annotation source(s) to report summary information from.")
     parser.add_argument("-o", "--output", required=True, help="Path for output to be written.")
