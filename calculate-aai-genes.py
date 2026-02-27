@@ -77,7 +77,7 @@ def main(args):
         subprocess.run(makedb_command.format(**makedb_args), shell=True)
         subprocess.run(search_command.format(**search_args), shell=True)
         os.chdir(outdir)
-    tempdf = pd.read_csv(blast_results, sep='\t', names=['Query', 'Target', 'Identity'])
+    tempdf = pd.read_csv(search_results, sep='\t', names=['Query', 'Target', 'Identity'])
     table = tempdf.pivot(index='Query', columns='Target', values='Identity')
     table.to_csv(table_path, sep='\t', float_format="%.3f")
 
