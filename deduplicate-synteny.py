@@ -40,7 +40,7 @@ def main():
     out_path = sys.argv[2]
 
     # Read in the data.
-    synteny_df = pd.read_csv(synteny_path, names=['ngram','N','genome','count','annotation'], sep='\t', dtype={'N':"Int8", 'count':"Int8"}, skip_blank_lines=False)
+    synteny_df = pd.read_csv(synteny_path, names=['ngram','N','genome','count','annotation'], sep='\t', dtype={'N':"UInt8", 'count':"UInt16"}, skip_blank_lines=False)
     genomes = synteny_df['genome'].dropna().unique()
     for genome in genomes: # For each genome...
         print("Analyzing {}...".format(genome))
