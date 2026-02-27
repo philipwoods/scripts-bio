@@ -8,6 +8,8 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 
 # Amino acid conservation properties extracted from jalview/schemes/ResidueProperties.java
+# Properties for U are from doi:10.1016/j.bbagen.2005.05.010
+# Properties for O are from doi:10.1016/j.mib.2011.04.001
 jalview_props = ["hydrophobic", "polar", "small", "positive", "negative", "charged", "aromatic", "aliphatic", "tiny", "proline"]
 aa_props = {
     "A": set(["hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "tiny", "not proline"]),
@@ -29,7 +31,9 @@ aa_props = {
     "T": set(["not hydrophobic", "polar", "small", "not positive", "not negative", "not charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
     "V": set(["hydrophobic", "not polar", "small", "not positive", "not negative", "not charged", "not aromatic", "aliphatic", "not tiny", "not proline"]),
     "W": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"]),
-    "Y": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"])
+    "Y": set(["hydrophobic", "polar", "not small", "not positive", "not negative", "not charged", "aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "U": set(["not hydrophobic", "polar", "small", "not positive", "negative", "charged", "not aromatic", "not aliphatic", "not tiny", "not proline"]),
+    "O": set(["hydrophobic", "polar", "not small", "positive", "not negative", "charged", "not aromatic", "aliphatic", "not tiny", "not proline"])
     }
 
 # From Susko & Roger (2007) doi:10.1093/molbev/msm144
