@@ -34,7 +34,7 @@ print_usage() {
 }
 
 print_version() {
-    echo "Last updated 13 November 2021"
+    echo "Last updated 26 Feb 2026"
 }
 
 infile=""
@@ -80,11 +80,12 @@ if [[ -z "$prefix" ]]; then
     exit 1
 fi
 
-# The input file (as of anvio v7.1) has the following format:
-# ngram    count    contig_db_name    N    number_of_loci
+# The input file (as of anvio v9) has the following format:
+# ngram    count    annotation    contig_db_name    N    number_of_loci
 # Each line holds a record of a set of ordered genes in a single genome.
-# The ngram is the description of the genes in order.
+# The ngram is the description of the genes in order (e.g. Anvio GCs)
 # The count is the number of times it occurs in the specified genome.
+# The annotation is similar to the ngram, but based on a source like KOfam
 # The contig_db_name is the genome this ngram occurs in.
 # N is the length of the ngram (how many genes in order).
 # The number_of_loci is the number of genomes being compared.
@@ -100,13 +101,14 @@ tmp2=$(mktemp)
 # The first command sorts so things with identical first columns (i.e. synteny) are adjacent. This is important for the use of uniq later.
 # The second command moves the first field to the end of the line (and changes the field separator to a space).
 # The third command removes the empty leading field and whitespace created by the second command.
-# The fourth command picks out all lines which are duplicates beyond the fourth field and groups them,
-#   leaving an empty line between groups. The last field (i.e. the synteny) is the fifth field.
-sort "${infile}" | awk '{first = $1; $1=""; print $0, first}' | awk '{$1=$1};1' | uniq -f4 --all-repeated=separate > $tmp1
-# The first command puts records into "synteny_id   length   genome_name   num_occurrences" format,
+# The fourth command picks out all lines which are duplicates beyond the fifth field and groups them,
+#   leaving an empty line between groups. The last field (i.e. the synteny) is the sixth field.
+sort "${infile}" | awk '{first = $1; $1=""; print $0, first}' | awk '{$1=$1};1' | uniq -f5 --all-repeated=separate > $tmp1
+# At this point, tmp1 is in the format: count    annotation    contig_db_name    N    number_of_loci   ngram
+# The first command puts records into "synteny_id   length   genome_name   num_occurrences   annotation" format,
 #   but also introduces empty fields separated by tabs to the blank lines.
 # The second command clears the whitespace from formerly empty lines and sets the field separator to tab.
-awk '{last = $NF; print last, $3, $2, $1}' $tmp1 | awk 'OFS="\t" {$1=$1};1' > $tmp2
+awk '{last = $NF; print last, $4, $3, $1, $2}' $tmp1 | awk 'OFS="\t" {$1=$1};1' > $tmp2
 rm -f $tmp1
 
 ## Once we have the 'singleton' ngrams removed, we can check for duplicates if necessary.
@@ -137,7 +139,7 @@ rm -f $tmp2
 
 echo "Compiling output..."
 # Print a header to the output file
-echo "synteny	length	num_genomes	genome_names(num_occurrences)" > $outfile
+echo "synteny	length	num_genomes	annotations	genome_names(num_occurrences)" > $outfile
 # Print one line per synteny group to the output file
 for groupfile in ${outdir}/group-*.txt; do
     # Extract the synteny ID for this group (same on all lines)
@@ -146,12 +148,16 @@ for groupfile in ${outdir}/group-*.txt; do
     length=$(cut -f 2 "${groupfile}" | uniq)
     # Count the number of organisms with this synteny group
     count=$(cut -f 1 "${groupfile}" | uniq -c | cut -f 1)
+    # Get the unique annotations for this group as a single line
+    annotations=$(cut -f 5 "${groupfile}" | sort -u | tr "\n" "," | sed 's/,$//')
     # Print the relevant fields to the output file
     printf $synteny >> $outfile
     printf '\t' >> $outfile
     printf $length >> $outfile
     printf '\t' >> $outfile
     printf $count >> $outfile
+    printf '\t' >> $outfile
+    printf $annotations >> $outfile
     printf '\t' >> $outfile
     # Format the last column of the output properly.
     #   First, cut out the columns for genome names and the occurrences per genome.

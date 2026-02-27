@@ -17,16 +17,17 @@ def main():
         both scripts must be in the same directory. Assumes the input file has the
         following format:
 
-        ngram    N   genome   count
+        ngram    N   genome   count   annotation
 
         Each line holds a record of a set of ordered genes in a single genome.
-        The ngram is the description of the genes in order.
+        The ngram is the description of the genes in order (e.g. Anvio GCs).
         N is the length of the ngram (how many genes in order).
         The genome is the genome this ngram occurs in.
         The count is the number of times it occurs in the specified genome.
+        The annotation is the description of each gene's function in order (e.g. KOfam)
     """
     version_string = """
-    Last updated 12 November 2021
+    Last updated 26 Feb 2026
     """
     ## Handle arguments
     if '-h' in sys.argv or '--help' in sys.argv:
@@ -39,7 +40,7 @@ def main():
     out_path = sys.argv[2]
 
     # Read in the data.
-    synteny_df = pd.read_csv(synteny_path, names=['ngram','N','genome','count'], sep='\t', dtype={'N':"Int8", 'count':"Int8"}, skip_blank_lines=False)
+    synteny_df = pd.read_csv(synteny_path, names=['ngram','N','genome','count','annotation'], sep='\t', dtype={'N':"Int8", 'count':"Int8"}, skip_blank_lines=False)
     genomes = synteny_df['genome'].dropna().unique()
     for genome in genomes: # For each genome...
         print("Analyzing {}...".format(genome))
