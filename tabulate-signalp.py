@@ -13,7 +13,7 @@ def main(args):
         results = json.load(f)
     data_dict = results['SEQUENCES']
     out_dict = []
-    for entry in data:
+    for entry in data_dict.values():
         seqname = entry['Name']
         prediction = entry['Prediction']
         prot_types = entry['Protein_types']
@@ -24,7 +24,7 @@ def main(args):
         }
         for name, p in zip(prot_types, likelihoods):
             row[name] = p
-        output.append(row)
+        out_dict.append(row)
     out_df = pd.DataFrame.from_records(out_dict)
     out_df.to_csv(args.output, index=False, sep=args.sep)
 
